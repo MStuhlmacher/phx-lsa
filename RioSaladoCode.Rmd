@@ -1,0 +1,1258 @@
+---
+title: "RioSaladoCode"
+author: "Michelle Stuhlmacher"
+date: "March 14, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(echo = TRUE)
+
+#set working directory
+#lab computer
+opts_knit$set(root.dir = "C:/Users/mstuhlma/Dropbox (ASU)/Dissertation/RioSalado2.0/Data")
+
+#laptop
+#opts_knit$set(root.dir = "C:/Users/Michelle/Dropbox (ASU)/Dissertation/RioSalado2.0/Data")
+```
+
+This is an R Markdown document with all of the code for the Rio Salado chapter of my dissertation. 
+For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+
+```{r import libraries, warning=FALSE, message=FALSE}
+library(rmcorr)
+library(Hmisc)
+library(ggplot2)
+library(gridExtra)
+library(tidyr)
+library(dplyr)
+library(vegan)
+library(codyn)
+library(lsmeans)
+library(ggpubr)
+library(weathermetrics)
+library(raster)
+library(networkD3)
+```
+
+
+```{r import data}
+#Rio Salado
+rawData_rs = read.csv('RSRecodeSubset19.01.25.csv', header = TRUE, 
+                      stringsAsFactors = FALSE,na.strings = "NA")
+rawData_rs[5:12] = lapply(rawData_rs[5:12], as.character)
+#then numeric
+rawData_rs[5:12] = lapply(rawData_rs[5:12], as.numeric)
+
+RS_NDVILST = read.csv("./NDVI_LST/AvgNDVILST_ndviCorrected_RS.csv")
+
+#Comparison Site
+rawData_cs = read.csv('CSRecodeSubset19.01.25.csv', header = TRUE, 
+                      stringsAsFactors = FALSE,na.strings = "N/A")
+#make sure the values are numeric
+#have to convert to character first
+rawData_cs[5:12] = lapply(rawData_cs[5:12], as.character)
+#then numeric
+rawData_cs[5:12] = lapply(rawData_cs[5:12], as.numeric)
+
+CS_NDVILST = read.csv("./NDVI_LST/AvgNDVILST_ndviCorrected_CS.csv")
+```
+#### Convert LST from Fahrenheit to Celsius
+```{r convert F to C}
+#Rio Salado
+rawData_rs$LSTdiff = fahrenheit.to.celsius(rawData_rs$LSTdiff)
+
+#Comparison Site
+rawData_cs$LSTdiff = fahrenheit.to.celsius(rawData_cs$LSTdiff)
+
+```
+
+
+## Figure 4. LULC Class Conversion Sankey Plot
+Link code is based off of: http://emapr.ceoas.oregonstate.edu/pages/education/how_to/sankey_diagram/sankey_diagram_to_visualize_landcover_change.html
+```{r Rio Salado Sankey}
+fileInfo <- data.frame(nodeCol=1, rasterFile="C:/Users/mstuhlma/Dropbox (ASU)/Dissertation/RioSalado2.0/Data/LULC/Reclassified/RS/Raster/RS1985_reclass.tif", rasterBand=1) %>%
+  rbind(data.frame(nodeCol=2, rasterFile="C:/Users/mstuhlma/Dropbox (ASU)/Dissertation/RioSalado2.0/Data/LULC/Reclassified/RS/Raster/RS2010_reclass.tif", rasterBand=1))
+
+nodeInfo <- data.frame(nodeName="Water"       , nodeID=0,  mapClass=1, nodeCol=1, nodeGroup='a') %>%
+  rbind(data.frame(nodeName="Built-up"        , nodeID=1,  mapClass=2, nodeCol=1, nodeGroup='b')) %>%
+  rbind(data.frame(nodeName="Crop"            , nodeID=2,  mapClass=3, nodeCol=1, nodeGroup='c')) %>%
+  rbind(data.frame(nodeName="Vegetation"      , nodeID=3,  mapClass=4, nodeCol=1, nodeGroup='d')) %>%
+  rbind(data.frame(nodeName="Desert/Bare Soil", nodeID=4,  mapClass=5, nodeCol=1, nodeGroup='e')) %>%
+  
+  rbind(data.frame(nodeName="Water"           , nodeID=5,  mapClass=1, nodeCol=2, nodeGroup='a')) %>%
+  rbind(data.frame(nodeName="Built-up"        , nodeID=6,  mapClass=2, nodeCol=2, nodeGroup='b')) %>%
+  rbind(data.frame(nodeName="Crop"            , nodeID=7,  mapClass=3, nodeCol=2, nodeGroup='c')) %>%
+  rbind(data.frame(nodeName="Vegetation"      , nodeID=8,  mapClass=4, nodeCol=2, nodeGroup='d')) %>%
+  rbind(data.frame(nodeName="Desert/Bare Soil", nodeID=9, mapClass=5, nodeCol=2, nodeGroup='e'))
+
+fontSize <- 16
+nodeWidth <- 30
+fontFamily <- "sans-serif"
+
+nodeInfo <- dplyr::left_join(nodeInfo, fileInfo, by='nodeCol')
+nodeInfo$nodeName <- as.character(nodeInfo$nodeName)
+nodeInfo$rasterFile <- as.character(nodeInfo$rasterFile)
+
+NodeCols <- sort(unique(nodeInfo$nodeCol))
+linkInfo <- data.frame()
+for(i in 1:(length(NodeCols)-1)){
+  fromCol <- dplyr::filter(nodeInfo, nodeCol==NodeCols[i])
+  toCol <- dplyr::filter(nodeInfo, nodeCol==NodeCols[i+1])
+  fromR <- values(raster(fromCol$rasterFile[1], fromCol$rasterBand[1]))
+  toR <- values(raster(toCol$rasterFile[1], toCol$rasterBand[1]))
+  for(f in 1:nrow(fromCol)){
+    for(t in 1:nrow(toCol)){
+      nFromTo <- length(which(fromR == fromCol$mapClass[f] & toR == toCol$mapClass[t]))
+      linkInfo <- rbind(linkInfo, data.frame(source=fromCol$nodeID[f], target=toCol$nodeID[t], value=nFromTo))
+    }
+  }
+}
+
+sankeyNetwork(Links = linkInfo,
+              Nodes = nodeInfo,
+              Source = "source",
+              Target = "target",
+              Value = "value",
+              NodeID = "nodeName",
+              NodeGroup = "nodeGroup",
+              fontSize = fontSize,
+              fontFamily = fontFamily,
+              nodeWidth = nodeWidth,                          #water   #built-up   #desert      #veg    #crop
+              colourScale = paste('d3.scaleOrdinal().range(["#0078A8", "#797979", "#D4C6AA","#81983C","#CDAA66"])'))
+
+##Colors
+#Built-up = 121/121/121 = #797979
+#Desert/Bare Soil = 212/198/170 = #D4C6AA
+#Crop = 205/170/102 = #CDAA66
+#Vegetation = 129/152/60 = #81983C
+#Water = 0/120/168 = #0078A8
+```
+
+```{r Comparision Site Sankey}
+fileInfo_cs <- data.frame(nodeCol=1, rasterFile_cs="C:/Users/mstuhlma/Dropbox (ASU)/Dissertation/RioSalado2.0/Data/LULC/Reclassified/CS/Raster/CS1985_reclass.tif", rasterBand=1) %>%
+  rbind(data.frame(nodeCol=2, rasterFile_cs="C:/Users/mstuhlma/Dropbox (ASU)/Dissertation/RioSalado2.0/Data/LULC/Reclassified/CS/Raster/CS2010_reclass.tif", rasterBand=1))
+
+nodeInfo_cs <- data.frame(nodeName="Water"       , nodeID=0,  mapClass=1, nodeCol=1, nodeGroup='a') %>%
+  rbind(data.frame(nodeName="Built-up"        , nodeID=1,  mapClass=2, nodeCol=1, nodeGroup='b')) %>%
+  rbind(data.frame(nodeName="Crop"            , nodeID=2,  mapClass=3, nodeCol=1, nodeGroup='c')) %>%
+  rbind(data.frame(nodeName="Vegetation"      , nodeID=3,  mapClass=4, nodeCol=1, nodeGroup='d')) %>%
+  rbind(data.frame(nodeName="Desert/Bare Soil", nodeID=4,  mapClass=5, nodeCol=1, nodeGroup='e')) %>%
+  
+  rbind(data.frame(nodeName="Water"           , nodeID=5,  mapClass=1, nodeCol=2, nodeGroup='a')) %>%
+  rbind(data.frame(nodeName="Built-up"        , nodeID=6,  mapClass=2, nodeCol=2, nodeGroup='b')) %>%
+  rbind(data.frame(nodeName="Crop"            , nodeID=7,  mapClass=3, nodeCol=2, nodeGroup='c')) %>%
+  rbind(data.frame(nodeName="Vegetation"      , nodeID=8,  mapClass=4, nodeCol=2, nodeGroup='d')) %>%
+  rbind(data.frame(nodeName="Desert/Bare Soil", nodeID=9, mapClass=5, nodeCol=2, nodeGroup='e'))
+
+nodeInfo_cs <- dplyr::left_join(nodeInfo_cs, fileInfo_cs, by='nodeCol')
+nodeInfo_cs$nodeName <- as.character(nodeInfo_cs$nodeName)
+nodeInfo_cs$rasterFile <- as.character(nodeInfo_cs$rasterFile)
+
+NodeCols_cs <- sort(unique(nodeInfo_cs$nodeCol))
+linkInfo_cs <- data.frame()
+for(i in 1:(length(NodeCols_cs)-1)){
+  fromCol_cs <- dplyr::filter(nodeInfo_cs, nodeCol==NodeCols_cs[i])
+  toCol_cs <- dplyr::filter(nodeInfo_cs, nodeCol==NodeCols_cs[i+1])
+  fromR_cs <- values(raster(fromCol_cs$rasterFile[1], fromCol_cs$rasterBand[1]))
+  toR_cs <- values(raster(toCol_cs$rasterFile[1], toCol_cs$rasterBand[1]))
+  for(f in 1:nrow(fromCol_cs)){
+    for(t in 1:nrow(toCol_cs)){
+      nFromTo_cs <- length(which(fromR_cs == fromCol_cs$mapClass[f] & toR_cs == toCol_cs$mapClass[t]))
+      linkInfo_cs <- rbind(linkInfo_cs, data.frame(source=fromCol_cs$nodeID[f], target=toCol_cs$nodeID[t], value=nFromTo_cs))
+    }
+  }
+}
+
+sankeyNetwork(Links = linkInfo_cs,
+              Nodes = nodeInfo_cs,
+              Source = "source",
+              Target = "target",
+              Value = "value",
+              NodeID = "nodeName",
+              NodeGroup = "nodeGroup",
+              fontSize = fontSize,
+              fontFamily = fontFamily,
+              nodeWidth = nodeWidth,                          #water   #built-up   #desert      #veg    #crop
+              colourScale = paste('d3.scaleOrdinal().range(["#0078A8", "#797979", "#D4C6AA","#81983C","#CDAA66"])'))
+```
+
+
+## Table 1. LSA Metric Slope
+Metrics:
+Distribution = IJI
+Connectivity = ENN_MD
+Shape = SHAPE_MD
+Size = PLAND
+```{r LSA metric slope - Rio Salado}
+##water
+Water_RS = subset(rawData_rs, Class == 1,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND))
+
+sW_PLAND_RS = lm(Water_RS$PLAND ~ Water_RS$Year)$coefficients[2]
+sW_SHAPEMD_RS = lm(Water_RS$SHAPE_MD ~ Water_RS$Year)$coefficients[2]
+sW_ENNMD_RS = lm(Water_RS$ENN_MD ~ Water_RS$Year)$coefficients[2]
+sW_IJI_RS = lm(Water_RS$IJI ~ Water_RS$Year)$coefficients[2]
+
+##built up
+Builtup_RS = subset(rawData_rs, Class == 2,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND)) 
+
+sBU_PLAND_RS = lm(Builtup_RS$PLAND ~ Builtup_RS$Year)$coefficients[2]
+sBU_SHAPEMD_RS = lm(Builtup_RS$SHAPE_MD ~ Builtup_RS$Year)$coefficients[2]
+sBU_ENNMD_RS = lm(Builtup_RS$ENN_MD ~ Builtup_RS$Year)$coefficients[2]
+sBU_IJI_RS = lm(Builtup_RS$IJI ~ Builtup_RS$Year)$coefficients[2]
+
+##crop
+Crop_RS = subset(rawData_rs, Class == 3,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND))
+
+sCrop_PLAND_RS = lm(Crop_RS$PLAND ~ Crop_RS$Year)$coefficients[2]
+sCrop_SHAPEMD_RS = lm(Crop_RS$SHAPE_MD ~ Crop_RS$Year)$coefficients[2]
+sCrop_ENNMD_RS = lm(Crop_RS$ENN_MD ~ Crop_RS$Year)$coefficients[2]
+sCrop_IJI_RS = lm(Crop_RS$IJI ~ Crop_RS$Year)$coefficients[2]
+
+##vegetation
+Veg_RS = subset(rawData_rs, Class == 4,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND))
+
+sVeg_PLAND_RS = lm(Veg_RS$PLAND ~ Veg_RS$Year)$coefficients[2]
+sVeg_SHAPEMD_RS = lm(Veg_RS$SHAPE_MD ~ Veg_RS$Year)$coefficients[2]
+sVeg_ENNMD_RS = lm(Veg_RS$ENN_MD ~ Veg_RS$Year)$coefficients[2]
+sVeg_IJI_RS = lm(Veg_RS$IJI ~ Veg_RS$Year)$coefficients[2]
+
+##desert
+D_RS = subset(rawData_rs, Class == 5,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND))
+
+sD_PLAND_RS = lm(D_RS$PLAND ~ D_RS$Year)$coefficients[2]
+sD_SHAPEMD_RS = lm(D_RS$SHAPE_MD ~ D_RS$Year)$coefficients[2]
+sD_ENNMD_RS = lm(D_RS$ENN_MD ~ D_RS$Year)$coefficients[2]
+sD_IJI_RS = lm(D_RS$IJI ~ D_RS$Year)$coefficients[2]
+
+##export slopes
+metric_RS = c('PLAND','SHAPE_MD','ENN_MD','IJI')
+ExW_RS = c(sW_PLAND_RS,sW_SHAPEMD_RS,sW_ENNMD_RS,sW_IJI_RS)
+ExBU_RS = c(sBU_PLAND_RS,sBU_SHAPEMD_RS,sBU_ENNMD_RS,sBU_IJI_RS)
+ExC_RS = c(sCrop_PLAND_RS,sCrop_SHAPEMD_RS,sCrop_ENNMD_RS,sCrop_IJI_RS)
+ExV_RS = c(sVeg_PLAND_RS,sVeg_SHAPEMD_RS,sVeg_ENNMD_RS,sVeg_IJI_RS)
+ExD_RS = c(sD_PLAND_RS,sD_SHAPEMD_RS,sD_ENNMD_RS,sD_IJI_RS)
+
+exportData_RS = data.frame(metric_RS,ExW_RS,ExBU_RS,ExC_RS,ExV_RS,ExD_RS)
+print(exportData_RS)
+#write.csv(exportData_RS,"./LSASlope/LSASlope_RS_2019.02.01.csv")
+```
+
+```{r LSA metric slope - Comparison Site}
+##water
+Water_CS = subset(rawData_cs, Class == 1,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND))
+
+sW_PLAND_CS = lm(Water_CS$PLAND ~ Water_CS$Year)$coefficients[2]
+sW_SHAPEMD_CS = lm(Water_CS$SHAPE_MD ~ Water_CS$Year)$coefficients[2]
+sW_ENNMD_CS = lm(Water_CS$ENN_MD ~ Water_CS$Year)$coefficients[2]
+sW_IJI_CS = lm(Water_CS$IJI ~ Water_CS$Year)$coefficients[2]
+
+##built up
+Builtup_CS = subset(rawData_cs, Class == 2,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND)) 
+
+sBU_PLAND_CS = lm(Builtup_CS$PLAND ~ Builtup_CS$Year)$coefficients[2]
+sBU_SHAPEMD_CS = lm(Builtup_CS$SHAPE_MD ~ Builtup_CS$Year)$coefficients[2]
+sBU_ENNMD_CS = lm(Builtup_CS$ENN_MD ~ Builtup_CS$Year)$coefficients[2]
+sBU_IJI_CS = lm(Builtup_CS$IJI ~ Builtup_CS$Year)$coefficients[2]
+
+##crop
+Crop_CS = subset(rawData_cs, Class == 3,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND))
+
+sCrop_PLAND_CS = lm(Crop_CS$PLAND ~ Crop_CS$Year)$coefficients[2]
+sCrop_SHAPEMD_CS = lm(Crop_CS$SHAPE_MD ~ Crop_CS$Year)$coefficients[2]
+sCrop_ENNMD_CS = lm(Crop_CS$ENN_MD ~ Crop_CS$Year)$coefficients[2]
+sCrop_IJI_CS = lm(Crop_CS$IJI ~ Crop_CS$Year)$coefficients[2]
+
+##vegetation
+Veg_CS = subset(rawData_cs, Class == 4,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND))
+
+sVeg_PLAND_CS = lm(Veg_CS$PLAND ~ Veg_CS$Year)$coefficients[2]
+sVeg_SHAPEMD_CS = lm(Veg_CS$SHAPE_MD ~ Veg_CS$Year)$coefficients[2]
+sVeg_ENNMD_CS = lm(Veg_CS$ENN_MD ~ Veg_CS$Year)$coefficients[2]
+sVeg_IJI_CS = lm(Veg_CS$IJI ~ Veg_CS$Year)$coefficients[2]
+
+##desert
+D_CS = subset(rawData_cs, Class == 5,select=c(Year, ClassNm, IJI, ENN_MD, SHAPE_MD, PLAND))
+
+sD_PLAND_CS = lm(D_CS$PLAND ~ D_CS$Year)$coefficients[2]
+sD_SHAPEMD_CS = lm(D_CS$SHAPE_MD ~ D_CS$Year)$coefficients[2]
+sD_ENNMD_CS = lm(D_CS$ENN_MD ~ D_CS$Year)$coefficients[2]
+sD_IJI_CS = lm(D_CS$IJI ~ D_CS$Year)$coefficients[2]
+
+##export slopes
+metric_CS = c('PLAND','SHAPE_MD','ENN_MD','IJI')
+ExW_CS = c(sW_PLAND_CS,sW_SHAPEMD_CS,sW_ENNMD_CS,sW_IJI_CS)
+ExBU_CS = c(sBU_PLAND_CS,sBU_SHAPEMD_CS,sBU_ENNMD_CS,sBU_IJI_CS)
+ExC_CS = c(sCrop_PLAND_CS,sCrop_SHAPEMD_CS,sCrop_ENNMD_CS,sCrop_IJI_CS)
+ExV_CS = c(sVeg_PLAND_CS,sVeg_SHAPEMD_CS,sVeg_ENNMD_CS,sVeg_IJI_CS)
+ExD_CS = c(sD_PLAND_CS,sD_SHAPEMD_CS,sD_ENNMD_CS,sD_IJI_CS)
+
+exportData_CS = data.frame(metric_CS,ExW_CS,ExBU_CS,ExC_CS,ExV_CS,ExD_CS)
+print(exportData_CS)
+#write.csv(exportData_CS,"./LSASlope/LSASlope_CS_2019.02.01.csv")
+```
+
+## Figure 7. Repeated Measures Correlation
+Format of functions in rmcorr:
+Running the repeated measures correlation
+rmc.out <- rmcorr(participant,
+                  measure1, measure2, dataset, CIs =
+                  c("analytic," "bootstrap"), nreps = 100,
+                  bstrap.out = F)
+
+participant = participant ID/number
+measure1 = observations for the first measure
+measure2 = observations for the second measure
+dataset = data frame containing these three variables
+CIs = allows the user to specify if the confidence intervals generated by the function are computed analytically using the Fisher
+transformation or using a bootstrapping procedure. If bootstrapped confidence intervals are chosen, additional arguments specify
+the number of resamples and whether the function output will include the resampled rmcorr values.
+
+The function returns rmc object which is a list containing four primary components: The value of the rmcorr
+coefficient, error numerator degrees of freedom, the 95% confidence interval for the rmcorr coefficient, and
+the p-value for the rmcorr coefficient.
+
+Graphing the output
+plot(rmc, dataset, overall = T, palette
+     = NULL, xlab = NULL, ylab = NULL,
+     overall.col = "gray60," overall.lwd =3,
+     overall.lty = 2, ...)
+
+```{r rmcorr, echo=TRUE, warning=FALSE, message=FALSE}
+#Rio Salado
+print("RESULTS FOR THE RIO SALADO")
+
+#PLAND (size)
+PLAND_NDVIdiff_rs <- rmcorr (participant = Class, measure1 = PLAND, measure2 = NDVIdiff, dataset = rawData_rs)
+print("size and NDVI difference p-value:")
+print(PLAND_NDVIdiff_rs$p)
+
+PLAND_LSTdiff_rs <- rmcorr (participant = Class, measure1 = PLAND, measure2 = LSTdiff, dataset = rawData_rs)
+print("size and LST differnce p-value:")
+print(PLAND_LSTdiff_rs$p)
+
+#SHAPE_MD (shape)
+SHAPEMD_NDVIdiff_rs <- rmcorr (participant = Class, measure1 = SHAPE_MD, measure2 = NDVIdiff, dataset = rawData_rs)
+print("shape and NDVI difference p-value:")
+print(SHAPEMD_NDVIdiff_rs$p)
+
+SHAPEMD_LSTdiff_rs <- rmcorr (participant = Class, measure1 = SHAPE_MD, measure2 = LSTdiff, dataset = rawData_rs)
+print("shape and LST difference p-value:")
+print(SHAPEMD_LSTdiff_rs$p)
+
+#ENN_MD (connectivity)
+ENNMD_NDVIdiff_rs <- rmcorr (participant = Class, measure1 = ENN_MD, measure2 = NDVIdiff, dataset = rawData_rs)
+print("connectivity and NDVI difference p-value:")
+print(ENNMD_NDVIdiff_rs$p)
+
+ENNMD_LSTdiff_rs <- rmcorr (participant = Class, measure1 = ENN_MD, measure2 = LSTdiff, dataset = rawData_rs)
+print("connectivity and LST difference p-value:")
+print(ENNMD_LSTdiff_rs$p)
+
+#IJI (distribution)
+IJI_NDVIdiff_rs <- rmcorr (participant = Class, measure1 = IJI, measure2 = NDVIdiff, dataset = rawData_rs)
+print("distribution  and NDVI difference p-value:")
+print(IJI_NDVIdiff_rs$p)
+
+IJI_LSTdiff_rs <- rmcorr (participant = Class, measure1 = IJI, measure2 = LSTdiff, dataset = rawData_rs)
+print("distribution  and LST difference p-value:")
+print(IJI_LSTdiff_rs$p)
+
+#Comparison Site
+print("RESULTS FOR COMPARISON SITE")
+
+#PLAND (size)
+PLAND_NDVIdiff_cs <- rmcorr (participant = Class, measure1 = PLAND, measure2 = NDVIdiff, dataset = rawData_cs)
+print("size and NDVI difference p-value:")
+print(PLAND_NDVIdiff_cs$p)
+
+PLAND_LSTdiff_cs <- rmcorr (participant = Class, measure1 = PLAND, measure2 = LSTdiff, dataset = rawData_cs)
+print("size and LST differnce p-value:")
+print(PLAND_LSTdiff_cs$p)
+
+#SHAPE_MD (shape)
+SHAPEMD_NDVIdiff_cs <- rmcorr (participant = Class, measure1 = SHAPE_MD, measure2 = NDVIdiff, dataset = rawData_cs)
+print("shape and NDVI difference p-value:")
+print(SHAPEMD_NDVIdiff_cs$p)
+
+SHAPEMD_LSTdiff_cs <- rmcorr (participant = Class, measure1 = SHAPE_MD, measure2 = LSTdiff, dataset = rawData_cs)
+print("shape and LST difference p-value:")
+print(SHAPEMD_LSTdiff_cs$p)
+
+#ENN_MD (connectivity)
+ENNMD_NDVIdiff_cs <- rmcorr (participant = Class, measure1 = ENN_MD, measure2 = NDVIdiff, dataset = rawData_cs)
+print("connectivity and NDVI difference p-value:")
+print(ENNMD_NDVIdiff_cs$p)
+
+ENNMD_LSTdiff_cs <- rmcorr (participant = Class, measure1 = ENN_MD, measure2 = LSTdiff, dataset = rawData_cs)
+print("connectivity and LST difference p-value:")
+print(ENNMD_LSTdiff_cs$p)
+
+#IJI (distribution)
+IJI_NDVIdiff_cs <- rmcorr (participant = Class, measure1 = IJI, measure2 = NDVIdiff, dataset = rawData_cs)
+print("distribution  and NDVI difference p-value:")
+print(IJI_NDVIdiff_cs$p)
+
+IJI_LSTdiff_cs <- rmcorr (participant = Class, measure1 = IJI, measure2 = LSTdiff, dataset = rawData_cs)
+print("distribution  and LST difference p-value:")
+print(IJI_LSTdiff_cs$p)
+```
+Plot shape and distribution repeated measures correlations
+
+This github page is where the ggplot plotting is adapted from:
+https://github.com/cran/rmcorr/blob/master/R/plot.rmc.R
+
+[LST A*] Shape and LST Difference @ Rio Salado
+```{r shape and LST RS rmcorr plot}
+#plot(SHAPEMD_LSTdiff_rs, rawData_rs, overall = F, lty = 2,xlab = "Shape", ylab = "LST Difference (C)")
+
+#Drop NAs for graphing
+rawData_rs_g = na.omit(rawData_rs)
+
+rrm_lstA = paste("italic(r[rm]) == ", signif(SHAPEMD_LSTdiff_rs$r, 2), sep="")
+p_lstA = paste("italic(p) == ", signif(SHAPEMD_LSTdiff_rs$p, 2), sep="")
+
+lstA = ggplot(rawData_rs_g, aes(SHAPE_MD,LSTdiff,colour=ClassNm)) +
+  #scale_color_brewer("Class",palette = "Blues") +
+                                #maroon, green, gold,   light blue, teal   
+  scale_color_manual(values=c("#8C1C40","#228B22","#E1B033","#93CDDD","#288098")) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10))+
+  geom_point(size=2.5) +
+  geom_line(aes(y = SHAPEMD_LSTdiff_rs$model$fitted.values), linetype = 6,size=1.5)+
+  xlab("Shape")+
+  ylab("LST Difference (C)")+
+  annotate("text",x=max(rawData_rs_g$SHAPE_MD)-0.08,y=max(rawData_rs_g$LSTdiff)-0.15,label = rrm_lstA,parse = TRUE)+
+  annotate("text",x=max(rawData_rs_g$SHAPE_MD)-0.08,y=max(rawData_rs_g$LSTdiff)-0.7,label = p_lstA,parse = TRUE)
+```
+
+[NDVI B*] Distribution and NDVI Difference @ Rio Salado
+```{r distribution and NDVI RS rmcorr plot, warning=FALSE}
+#plot(IJI_NDVIdiff_rs, rawData_rs, overall = F, lty = 2,xlab = "Distribution", ylab = "NDVI Difference")
+rrm_ndviB = paste("italic(r[rm]) == ", signif(IJI_NDVIdiff_rs$r, 2), sep="")
+p_ndviB = paste("italic(p) == ", signif(IJI_NDVIdiff_rs$p, 2), sep="")
+
+ndviB = ggplot(rawData_rs_g, aes(IJI,NDVIdiff,colour=ClassNm)) +
+  #scale_color_brewer("Class",palette = "Blues") +
+  scale_color_manual(values=c("#8C1C40","#228B22","#E1B033","#93CDDD","#288098")) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10))+
+  geom_point(size=2.5) +
+  geom_line(aes(y = IJI_NDVIdiff_rs$model$fitted.values), linetype = 6,size=1.5)+
+  xlab("Distribution")+
+  ylab("NDVI Difference")+
+  annotate("text",x=max(rawData_rs_g$IJI)-13,y=max(rawData_rs_g$NDVIdiff)-0.01,label = rrm_ndviB,parse = TRUE)+
+  annotate("text",x=max(rawData_rs_g$IJI)-13,y=max(rawData_rs_g$NDVIdiff)-0.04,label = p_ndviB,parse = TRUE)
+```
+
+[LST B*] Distribution and LST Difference @ Rio Salado
+```{r distribution and LST RS rmcorr plot, warning=FALSE}
+#plot(IJI_LSTdiff_rs, rawData_rs, overall = F, lty = 2,xlab = "Distribution", ylab = "LST Difference (C)")
+rrm_lstB = paste("italic(r[rm]) == ", signif(IJI_LSTdiff_rs$r, 2), sep="")
+p_lstB = paste("italic(p) == ", signif(IJI_LSTdiff_rs$p, 2), sep="")
+
+lstB = ggplot(rawData_rs_g, aes(IJI,LSTdiff,colour=ClassNm)) +
+  #scale_color_brewer("Class",palette = "Blues") +
+  scale_color_manual(values=c("#8C1C40","#228B22","#E1B033","#93CDDD","#288098")) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10))+
+  geom_point(size=2.5) +
+  geom_line(aes(y = IJI_LSTdiff_rs$model$fitted.values), linetype = 6,size=1.5)+
+  xlab("Distribution")+
+  ylab("LST Difference (C)")+
+  annotate("text",x=max(rawData_rs_g$IJI)-13,y=max(rawData_rs_g$LSTdiff)-0.15,label = rrm_lstB,parse = TRUE)+
+  annotate("text",x=max(rawData_rs_g$IJI)-13,y=max(rawData_rs_g$LSTdiff)-0.7,label = p_lstB,parse = TRUE)
+```
+
+[NDVI C*] Shape and NDVI difference @ Comparison Site
+```{r shape and NDVI CS rmcorr plot, warning=FALSE}
+#plot(SHAPEMD_NDVIdiff_cs, rawData_cs, overall = F, lty = 2,xlab = "Shape", ylab = "NDVI Difference")
+rrm_ndviC = paste("italic(r[rm]) == ", signif(SHAPEMD_NDVIdiff_cs$r, 2), sep="")
+p_ndviC = paste("italic(p) == ", signif(SHAPEMD_NDVIdiff_cs$p, 2), sep="")
+
+ndviC = ggplot(rawData_cs, aes(SHAPE_MD,NDVIdiff,colour=ClassNm))+
+  #scale_color_brewer("Class",palette = "Blues") +
+  scale_color_manual(values=c("#8C1C40","#228B22","#E1B033","#93CDDD","#288098")) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10))+
+  geom_point(size=3)+
+  geom_line(aes(y = SHAPEMD_NDVIdiff_cs$model$fitted.values), linetype = 6,size=1.5)+
+  xlab("Shape")+
+  ylab("NDVI Difference")+
+  annotate("text",x=max(rawData_cs$SHAPE_MD)-0.1,y=min(rawData_cs$NDVIdiff)+0.08,label = rrm_ndviC,parse = TRUE)+
+  annotate("text",x=max(rawData_cs$SHAPE_MD)-0.1,y=min(rawData_cs$NDVIdiff)+0.03,label = p_ndviC,parse = TRUE)
+```
+
+[LST C*] Shape and LST difference @ Comparison Site
+```{r shape and LST CS rmcorr plot, warning=FALSE}
+#plot(SHAPEMD_LSTdiff_cs, rawData_cs, overall = F, lty = 2,xlab = "Shape", ylab = "LST Difference (C)")
+rrm_lstC = paste("italic(r[rm]) == ", signif(SHAPEMD_LSTdiff_cs$r, 2), sep="")
+p_lstC = paste("italic(p) == ", signif(SHAPEMD_LSTdiff_cs$p, 2), sep="")
+
+lstC = ggplot(rawData_cs, aes(SHAPE_MD,LSTdiff,colour=ClassNm))+
+  #scale_color_brewer("Class",palette = "Blues") +
+  scale_color_manual(values=c("#8C1C40","#228B22","#E1B033","#93CDDD","#288098")) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10))+
+  geom_point(size=2.5)+
+  geom_line(aes(y = SHAPEMD_LSTdiff_cs$model$fitted.values), linetype = 6,size=1.5)+
+  xlab("Shape")+
+  ylab("LST Difference (C)")+
+  annotate("text",x=max(rawData_cs$SHAPE_MD)-0.1,y=min(rawData_cs$LSTdiff)+1.2,label = rrm_lstC,parse = TRUE)+
+  annotate("text",x=max(rawData_cs$SHAPE_MD)-0.1,y=min(rawData_cs$LSTdiff)+0.45,label = p_lstC,parse = TRUE)
+```
+
+[NDVI A] Shape and NDVI difference @ Rio Salado
+```{r shape and NDVI RS rmcorr plot, warning=FALSE}
+#plot(SHAPEMD_NDVIdiff_rs, rawData_rs, overall = F, lty = 2,xlab = "Shape", ylab = "NDVI Difference")
+rrm_ndviA = paste("italic(r[rm]) == ", signif(SHAPEMD_NDVIdiff_rs$r, 2), sep="")
+p_ndviA = paste("italic(p) == ", signif(SHAPEMD_NDVIdiff_rs$p, 2), sep="")
+
+ndviA = ggplot(rawData_rs_g, aes(SHAPE_MD,NDVIdiff,colour=ClassNm)) +
+  #scale_color_brewer("Class",palette = "Blues") +
+  scale_color_manual(values=c("#8C1C40","#228B22","#E1B033","#93CDDD","#288098")) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10))+
+  geom_point(size=2.5) +
+  geom_line(aes(y = SHAPEMD_NDVIdiff_rs$model$fitted.values), linetype = 6,size=1.5)+
+  xlab("Shape")+
+  ylab("NDVI Difference")+
+  annotate("text",x=max(rawData_rs_g$SHAPE_MD)-0.08,y=max(rawData_rs_g$NDVIdiff)-0.01,label = rrm_ndviA,parse = TRUE)+
+  annotate("text",x=max(rawData_rs_g$SHAPE_MD)-0.08,y=max(rawData_rs_g$NDVIdiff)-0.04,label = p_ndviA,parse = TRUE)
+  
+```
+
+[NDVI D] Distribution and NDVI difference @ Comparison Site
+```{r distribution and NDVI CS rmcorr plot, warning=FALSE}
+#plot(IJI_NDVIdiff_cs, rawData_cs, overall = F, lty = 2,xlab = "Shape", ylab = "NDVI Difference")
+rrm_ndviD = paste("italic(r[rm]) == ", signif(IJI_NDVIdiff_cs$r, 2), sep="")
+p_ndviD = paste("italic(p) == ", signif(IJI_NDVIdiff_cs$p, 2), sep="")
+
+ndviD = ggplot(rawData_cs, aes(IJI,NDVIdiff,colour=ClassNm))+
+  #scale_color_brewer("Class",palette = "Blues") +
+  scale_color_manual(values=c("#8C1C40","#228B22","#E1B033","#93CDDD","#288098")) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10))+
+  geom_point(size=2.5)+
+  geom_line(aes(y = IJI_NDVIdiff_cs$model$fitted.values), linetype = 6,size=1.5)+
+  xlab("Distribution")+
+  ylab("NDVI Difference")+
+  annotate("text",x=max(rawData_cs$IJI)-13,y=min(rawData_cs$NDVIdiff)+0.08,label = rrm_ndviD,parse = TRUE)+
+  annotate("text",x=max(rawData_cs$IJI)-13,y=min(rawData_cs$NDVIdiff)+0.03,label = p_ndviD,parse = TRUE)
+```
+
+[LST D] Distribution and LST difference @ Comparison Site
+```{r distribution and LST CS rmcorr plot, warning=FALSE}
+#plot(IJI_LSTdiff_cs, rawData_cs, overall = F, lty = 2,xlab = "Distribution", ylab = "LST Difference (C)")
+rrm_lstD = paste("italic(r[rm]) == ", signif(IJI_LSTdiff_cs$r, 2), sep="")
+p_lstD = paste("italic(p) == ", signif(IJI_LSTdiff_cs$p, 2), sep="")
+
+lstD = ggplot(rawData_cs, aes(IJI,LSTdiff,colour=ClassNm))+
+  #scale_color_brewer("Class",palette = "Blues") +
+  scale_color_manual(values=c("#8C1C40","#228B22","#E1B033","#93CDDD","#288098")) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10))+
+  geom_point(size=2.5)+
+  geom_line(aes(y = IJI_LSTdiff_cs$model$fitted.values), linetype = 6,size=1.5)+
+  xlab("Distribution")+
+  ylab("LST Difference (C)")+
+  annotate("text",x=max(rawData_cs$IJI)-13,y=min(rawData_cs$LSTdif)+1.2,label = rrm_lstD,parse = TRUE)+
+  annotate("text",x=max(rawData_cs$IJI)-13,y=min(rawData_cs$LSTdif)+0.45,label = p_lstD,parse = TRUE)
+  #annotate("text",x=69,y=-9,label = rrm_lstD,parse = TRUE)+
+  #annotate("text",x=70,y=-10,label = p_lstD,parse = TRUE)
+```
+
+Facet wrap with stat sig rmcorr graphs
+https://community.rstudio.com/t/annotate-ggplot2-with-regression-equation-and-r-squared/6112/8
+
+```{r facet wrap rmcorr,warning=FALSE,message=FALSE}
+ggarrange(ndviA,ndviB,lstA,lstB,ndviC,ndviD,lstC,lstD,ncol=4,nrow=2,common.legend = TRUE, legend="bottom")
+```
+
+## Figure 8. Bird Community Metric Graphs
+Data Cleaning
+```{r bird data cleaning}
+BIRD_dat <- read.csv("./BirdData/46_core_birds_9c9f11bd34574cc60196f659dc6a6739.csv")
+
+#Changing column format 
+BIRD_dat$location_type <- as.character(BIRD_dat$location_type) #change location type to character to subset
+BIRD_dat$site_code <- as.character(BIRD_dat$site_code) #change site code to character to subset
+BIRD_dat$code <- as.character(BIRD_dat$code) #change species code to character to subset
+
+#Extract year
+BIRD_dat$Date <- as.POSIXct(BIRD_dat$survey_date)
+BIRD_dat$Year <- as.numeric(format(BIRD_dat$Date, format = "%Y"))
+BIRD_dat$Month <- as.numeric(format(BIRD_dat$Date, format = "%m"))
+unique(BIRD_dat$Year) #number of years with observations (any number)
+unique(BIRD_dat$site_code)
+
+#Subset Rio Salado sites
+dataRS <- BIRD_dat %>% filter(site_code =="PE-1D",
+                              ! Year==2016,
+                              ! Year==2003,
+                              ! grepl('Unidentified', common_name), #Remove unidentified species
+                              ! distance  %in% c(">40","FT" ), #Observations within 40m
+                              ! is.na(distance),
+                              Month == 12| Month==1 | Month == 2 |  Month == 3 | Month == 4 | Month == 5)  #Drop all but spring months for uneven sampling design
+
+
+dataCS <- BIRD_dat %>% filter(site_code =="EE-6A",
+                              ! Year==2016,
+                              ! Year==2003,
+                              ! grepl('Unidentified', common_name), #Remove unidentified species
+                              ! distance  %in% c(">40","FT" ), #Observations within 40m
+                              ! is.na(distance),
+                              Month == 12| Month==1 | Month == 2 |  Month == 3 | Month == 4 | Month == 5)  #Drop all but spring months for uneven sampling design
+
+
+#calculate the maximum number of each species observed at each point in each year for Rios Salado
+outRS <- data.frame(OBSERVATION_TYPE = "", 
+                    SITE_ID = "",
+                    DATE = "",
+                    VARIABLE_NAME = "",
+                    VARIABLE_UNITS = "",
+                    VALUE = "")
+
+step1 <- dataRS %>% group_by(Date, code) %>% 
+  summarize(NUM = sum(bird_count))
+step1$Year<- as.numeric(format(step1$Date, format = "%Y"))
+
+step2 <- step1 %>% group_by(Year, code) %>% 
+  summarize(VALUE = max(NUM))
+
+outRS <- cbind.data.frame(OBSERVATION_TYPE = "TAXON_COUNT",
+                          DATE = step2$Year,
+                          VARIABLE_NAME = step2$code,
+                          VARIABLE_UNITS = "count",
+                          VALUE = step2$VALUE)
+
+outRS$site="RioSalado"
+
+#calculate the maximum number of each species observed at each point in each year for Comparison
+outCS <- data.frame(OBSERVATION_TYPE = "", 
+                    SITE_ID = "",
+                    DATE = "",
+                    VARIABLE_NAME = "",
+                    VARIABLE_UNITS = "",
+                    VALUE = "")
+
+step1 <- dataCS %>% group_by(Date, code) %>% 
+  summarize(NUM = sum(bird_count))
+step1$Year<- as.numeric(format(step1$Date, format = "%Y"))
+
+step2 <- step1 %>% group_by(Year, code) %>% 
+  summarize(VALUE = max(NUM))
+
+outCS <- cbind.data.frame(OBSERVATION_TYPE = "TAXON_COUNT",
+                          DATE = step2$Year,
+                          VARIABLE_NAME = step2$code,
+                          VARIABLE_UNITS = "count",
+                          VALUE = step2$VALUE)
+
+outCS$site="Comparison"
+
+#combining sites
+out=rbind(outRS,outCS)
+
+# Convert from long to wide and back to long to be sure that we have fully propagated taxa
+out_wide <- spread(out, key = VARIABLE_NAME, value = VALUE, fill = 0)
+out_wide <- out_wide %>% arrange(site,DATE)
+bird_wide=data.frame(out_wide[,c(5:84)])
+
+out_long <- gather(out_wide, key = VARIABLE_NAME, value = VALUE, -DATE, -OBSERVATION_TYPE, -VARIABLE_UNITS,-site)
+out_long_cs=out_long %>% filter(site=="Comparison")
+out_long_rs=out_long %>% filter(site=="RioSalado")
+bird_turnover_cs <- turnover(df = out_long_cs, 
+                             time.var = "DATE", 
+                             species.var = "VARIABLE_NAME", 
+                             abundance.var = "VALUE")
+colnames(bird_turnover_cs) = c("Turnover_CS","Year")
+
+bird_turnover_rs <- turnover(df = out_long_rs, 
+                             time.var = "DATE", 
+                             species.var = "VARIABLE_NAME", 
+                             abundance.var = "VALUE")
+colnames(bird_turnover_rs) = c("Turnover_CS","Year")
+
+bird_turnover_rs$site="RS"
+bird_turnover_cs$site="CS"
+```
+
+Ordination file creation
+```{r ord dat file creation}
+##Set up dataframe (25 columns x 28 rows)
+DF = data.frame(matrix(ncol = 25, nrow = 28))
+x = c("Year", "Landscape", "Site", "Temp", "NDVI",
+      "Water_PLAND", "Water_ENN_MD","Water_SHAPE_MD", "Water_IJI",
+      "BU_PLAND","BU_ENN_MD","BU_SHAPE_MD","BU_IJI",
+      "Crop_PLAND","Crop_ENN_MD","CropSHAPE_MD","Crop_IJI",
+      "Veg_PLAND","Veg_ENN_MD","Veg_SHAPE_MD","Veg_IJI",
+      "DS_PLAND","DS_ENN_MD","DS_SHAPE_MD","DS_IJI")
+colnames(DF) = x
+
+##Set up Year, Landscape and Site rows
+#Year
+DF$Year = c("Y2001","Y2002","Y2004","Y2005","Y2006","Y2007","Y2008","Y2009","Y2010","Y2011","Y2012",
+            "Y2013","Y2014","Y2015","Y2001","Y2002","Y2004","Y2005","Y2006","Y2007","Y2008","Y2009",
+            "Y2010","Y2011","Y2012","Y2013","Y2014","Y2015")
+
+#Landscape
+#Landscape values corresponding to year of bird data
+#2001-2002 = 2000
+#no 2003
+#2004-2008 = 2005
+#2009-2015 = 2010
+DF$Landscape = c("LC_2000","LC_2000","LC_2005","LC_2005","LC_2005","LC_2005","LC_2005","LC_2010",
+                 "LC_2010","LC_2010","LC_2010","LC_2010","LC_2010","LC_2010",
+                 "LC_2000","LC_2000","LC_2005","LC_2005","LC_2005","LC_2005","LC_2005","LC_2010",
+                 "LC_2010","LC_2010","LC_2010","LC_2010","LC_2010","LC_2010")
+
+#Site
+DF$Site = c("CS","CS","CS","CS","CS","CS","CS","CS","CS","CS","CS","CS","CS","CS",
+            "RS","RS","RS","RS","RS","RS","RS","RS","RS","RS","RS","RS","RS","RS")
+
+##Pull values from raw datafiles
+#CS2000,CS2000,CS2005,CS2005,CS2005,CS2005,CS2005,CS2010,CS2010,CS2010,CS2010,CS2010,CS2010,CS2010
+#RS2000,RS2000,RS2005,RS2005,RS2005,RS2005,RS2005,RS2010,RS2010,RS2010,RS2010,RS2010,RS2010,RS2010
+
+#Temp
+DF$Temp = c(CS_NDVILST[1,5],CS_NDVILST[1,5], #CS2000 x 2
+            CS_NDVILST[1,6],CS_NDVILST[1,6],CS_NDVILST[1,6],CS_NDVILST[1,6],CS_NDVILST[1,6], #CS2005 x 5
+            CS_NDVILST[1,7],CS_NDVILST[1,7],CS_NDVILST[1,7],CS_NDVILST[1,7],CS_NDVILST[1,7],
+            CS_NDVILST[1,7],CS_NDVILST[1,7], #CS2010 x 7
+            RS_NDVILST[1,5],RS_NDVILST[1,5], #RS2000 x 2
+            RS_NDVILST[1,6],RS_NDVILST[1,6],RS_NDVILST[1,6],RS_NDVILST[1,6],RS_NDVILST[1,6], #RS2005 x 5
+            RS_NDVILST[1,7],RS_NDVILST[1,7],RS_NDVILST[1,7],RS_NDVILST[1,7],RS_NDVILST[1,7],
+            RS_NDVILST[1,7],RS_NDVILST[1,7]) #RS2010 x 7
+
+#NDVI
+DF$NDVI = c(CS_NDVILST[2,5],CS_NDVILST[2,5], #CS2000 x 2
+            CS_NDVILST[2,6],CS_NDVILST[2,6],CS_NDVILST[2,6],CS_NDVILST[2,6],CS_NDVILST[2,6], #CS2005 x 5
+            CS_NDVILST[2,7],CS_NDVILST[2,7],CS_NDVILST[2,7],CS_NDVILST[2,7],CS_NDVILST[2,7],
+            CS_NDVILST[2,7],CS_NDVILST[2,7], #CS2010 x 7
+            RS_NDVILST[2,5],RS_NDVILST[2,5], #RS2000 x 2
+            RS_NDVILST[2,6],RS_NDVILST[2,6],RS_NDVILST[2,6],RS_NDVILST[2,6],RS_NDVILST[2,6], #RS2005 x 5
+            RS_NDVILST[2,7],RS_NDVILST[2,7],RS_NDVILST[2,7],RS_NDVILST[2,7],RS_NDVILST[2,7],
+            RS_NDVILST[2,7],RS_NDVILST[2,7]) #RS2010 x 7
+
+#Water_PLAND
+DF$Water_PLAND = c(rawData_cs[16,9],rawData_cs[16,9], #CS2000 x 2
+                   rawData_cs[21,9],rawData_cs[21,9],rawData_cs[21,9],rawData_cs[21,9],rawData_cs[21,9], #CS2005 x 5
+                   rawData_cs[26,9],rawData_cs[26,9],rawData_cs[26,9],rawData_cs[26,9],rawData_cs[26,9],
+                   rawData_cs[26,9],rawData_cs[26,9], #CS2010 x 7
+                   
+                   rawData_rs[16,9],rawData_rs[16,9], #RS2000 x 2
+                   rawData_rs[21,9],rawData_rs[21,9],rawData_rs[21,9],rawData_rs[21,9],rawData_rs[21,9], #RS2005 x 5
+                   rawData_rs[26,9],rawData_rs[26,9],rawData_rs[26,9],rawData_rs[26,9],rawData_rs[26,9],
+                   rawData_rs[26,9],rawData_rs[26,9]) #RS2010 x 7
+
+#Water_ENN_MD
+DF$Water_ENN_MD = c(rawData_cs[16,10],rawData_cs[16,10], #CS2000 x 2
+                    rawData_cs[21,10],rawData_cs[21,10],rawData_cs[21,10],rawData_cs[21,10],
+                    rawData_cs[21,10], #CS2005 x 5
+                    rawData_cs[26,10],rawData_cs[26,10],rawData_cs[26,10],rawData_cs[26,10],
+                    rawData_cs[26,10],
+                    rawData_cs[26,10],rawData_cs[26,10], #CS2010 x 2
+                    rawData_rs[16,10],rawData_rs[16,10], #RS2000 x 2
+                    rawData_rs[21,10],rawData_rs[21,10],rawData_rs[21,10],rawData_rs[21,10],
+                    rawData_rs[21,10], #RS2005 x 5
+                    rawData_rs[26,10],rawData_rs[26,10],rawData_rs[26,10],rawData_rs[26,10],
+                    rawData_rs[26,10],
+                    rawData_rs[26,10],rawData_rs[26,10]) #RS2010 x 7
+
+#Water_SHAPE_MD
+DF$Water_SHAPE_MD = c(rawData_cs[16,11],rawData_cs[16,11], #CS2000 x 2
+                      rawData_cs[21,11],rawData_cs[21,11],rawData_cs[21,11],rawData_cs[21,11],
+                      rawData_cs[21,11], #CS2005 x 5
+                      rawData_cs[26,11],rawData_cs[26,11],rawData_cs[26,11],rawData_cs[26,11],
+                      rawData_cs[26,11],
+                      rawData_cs[26,11],rawData_cs[26,11], #CS2010 x 2
+                      rawData_rs[16,11],rawData_rs[16,11], #RS2000 x 2
+                      rawData_rs[21,11],rawData_rs[21,11],rawData_rs[21,11],rawData_rs[21,11],
+                      rawData_rs[21,11], #RS2005 x 5
+                      rawData_rs[26,11],rawData_rs[26,11],rawData_rs[26,11],rawData_rs[26,11],
+                      rawData_rs[26,11],
+                      rawData_rs[26,11],rawData_rs[26,11]) #RS2010 x 7
+
+#Water_IJI
+DF$Water_IJI = c(rawData_cs[16,12],rawData_cs[16,12], #CS2000 x 2
+                 rawData_cs[21,12],rawData_cs[21,12],rawData_cs[21,12],rawData_cs[21,12],
+                 rawData_cs[21,12], #CS2005 x 5
+                 rawData_cs[26,12],rawData_cs[26,12],rawData_cs[26,12],rawData_cs[26,12],
+                 rawData_cs[26,12],
+                 rawData_cs[26,12],rawData_cs[26,12], #CS2010 x 2
+                 rawData_rs[16,12],rawData_rs[16,12], #RS2000 x 2
+                 rawData_rs[21,12],rawData_rs[21,12],rawData_rs[21,12],rawData_rs[21,12],
+                 rawData_rs[21,12], #RS2005 x 5
+                 rawData_rs[26,12],rawData_rs[26,12],rawData_rs[26,12],rawData_rs[26,12],
+                 rawData_rs[26,12],
+                 rawData_rs[26,12],rawData_rs[26,12]) #RS2010 x 7
+
+#BU_PLAND
+DF$BU_PLAND = c(rawData_cs[17,9],rawData_cs[17,9], #CS2000 x 2
+                rawData_cs[22,9],rawData_cs[22,9],rawData_cs[22,9],rawData_cs[22,9],
+                rawData_cs[22,9], #CS2005 x 5
+                rawData_cs[27,9],rawData_cs[27,9],rawData_cs[27,9],rawData_cs[27,9],
+                rawData_cs[27,9],rawData_cs[27,9],rawData_cs[27,9], #CS2010 x 7
+                rawData_rs[17,9],rawData_rs[17,9], #RS2000 x 2
+                rawData_rs[22,9],rawData_rs[22,9],rawData_rs[22,9],rawData_rs[22,9],
+                rawData_rs[22,9], #RS2005 x 5
+                rawData_rs[27,9],rawData_rs[27,9],rawData_rs[27,9],rawData_rs[27,9],
+                rawData_rs[27,9],rawData_rs[27,9],rawData_rs[27,9]) #RS2010 x 7
+
+#BU_ENN_MD
+DF$BU_ENN_MD = c(rawData_cs[17,10],rawData_cs[17,10], #CS2000 x 2
+                 rawData_cs[22,10],rawData_cs[22,10],rawData_cs[22,10],rawData_cs[22,10],
+                 rawData_cs[22,10], #CS2005 x 5
+                 rawData_cs[27,10],rawData_cs[27,10],rawData_cs[27,10],rawData_cs[27,10],
+                 rawData_cs[27,10],rawData_cs[27,10],rawData_cs[27,10], #CS2010 x 7
+                 rawData_rs[17,10],rawData_rs[17,10], #RS2000 x 2
+                 rawData_rs[22,10],rawData_rs[22,10],rawData_rs[22,10],rawData_rs[22,10],
+                 rawData_rs[22,10], #RS2005 x 5
+                 rawData_rs[27,10],rawData_rs[27,10],rawData_rs[27,10],rawData_rs[27,10],
+                 rawData_rs[27,10],rawData_rs[27,10],rawData_rs[27,10]) #RS2010 x 7
+
+#BU_SHAPE_MD
+DF$BU_SHAPE_MD = c(rawData_cs[17,11],rawData_cs[17,11], #CS2000 x 2
+                   rawData_cs[22,11],rawData_cs[22,11],rawData_cs[22,11],rawData_cs[22,11],
+                   rawData_cs[22,11], #CS2005 x 5
+                   rawData_cs[27,11],rawData_cs[27,11],rawData_cs[27,11],rawData_cs[27,11],
+                   rawData_cs[27,11],rawData_cs[27,11],rawData_cs[27,11], #CS2010 x 7
+                   rawData_rs[17,11],rawData_rs[17,11], #RS2000 x 2
+                   rawData_rs[22,11],rawData_rs[22,11],rawData_rs[22,11],rawData_rs[22,11],
+                   rawData_rs[22,11], #RS2005 x 5
+                   rawData_rs[27,11],rawData_rs[27,11],rawData_rs[27,11],rawData_rs[27,11],
+                   rawData_rs[27,11],rawData_rs[27,11],rawData_rs[27,11]) #RS2010 x 7
+
+#BU_IJI
+DF$BU_IJI = c(rawData_cs[17,12],rawData_cs[17,12], #CS2000 x 2
+              rawData_cs[22,12],rawData_cs[22,12],rawData_cs[22,12],rawData_cs[22,12],
+              rawData_cs[22,12], #CS2005 x 5
+              rawData_cs[27,12],rawData_cs[27,12],rawData_cs[27,12],rawData_cs[27,12],
+              rawData_cs[27,12],rawData_cs[27,12],rawData_cs[27,12], #CS2010 x 7
+              rawData_rs[17,12],rawData_rs[17,12], #RS2000 x 2
+              rawData_rs[22,12],rawData_rs[22,12],rawData_rs[22,12],rawData_rs[22,12],
+              rawData_rs[22,12], #RS2005 x 5
+              rawData_rs[27,12],rawData_rs[27,12],rawData_rs[27,12],rawData_rs[27,12],
+              rawData_rs[27,12],rawData_rs[27,12],rawData_rs[27,12]) #RS2010 x 7
+
+#Crop_PLAND
+DF$Crop_PLAND = c(rawData_cs[18,9],rawData_cs[18,9], #CS2000 x 2
+                  rawData_cs[23,9],rawData_cs[23,9],rawData_cs[23,9],rawData_cs[23,9],
+                  rawData_cs[23,9], #CS2005 x 5
+                  rawData_cs[28,9],rawData_cs[28,9],rawData_cs[28,9],rawData_cs[28,9],
+                  rawData_cs[28,9],rawData_cs[28,9],rawData_cs[28,9], #CS2010 x 7
+                  rawData_rs[18,9],rawData_rs[18,9], #RS2000 x 2
+                  rawData_rs[23,9],rawData_rs[23,9],rawData_rs[23,9],rawData_rs[23,9],
+                  rawData_rs[23,9], #RS2005 x 5
+                  rawData_rs[28,9],rawData_rs[28,9],rawData_rs[28,9],rawData_rs[28,9],
+                  rawData_rs[28,9],rawData_rs[28,9],rawData_rs[28,9]) #RS2010 x 7
+
+#Crop_ENN_MD
+DF$Crop_ENN_MD = c(rawData_cs[18,10],rawData_cs[18,10], #CS2000 x 2
+                   rawData_cs[23,10],rawData_cs[23,10],rawData_cs[23,10],rawData_cs[23,10],
+                   rawData_cs[23,10], #CS2005 x 5
+                   rawData_cs[28,10],rawData_cs[28,10],rawData_cs[28,10],rawData_cs[28,10],
+                   rawData_cs[28,10],rawData_cs[28,10],rawData_cs[28,10], #CS2010 x 7
+                   rawData_rs[18,10],rawData_rs[18,10], #RS2000 x 2
+                   rawData_rs[23,10],rawData_rs[23,10],rawData_rs[23,10],rawData_rs[23,10],
+                   rawData_rs[23,10], #RS2005 x 5
+                   rawData_rs[28,10],rawData_rs[28,10],rawData_rs[28,10],rawData_rs[28,10],
+                   rawData_rs[28,10],rawData_rs[28,10],rawData_rs[28,10]) #RS2010 x 7
+
+#CropSHAPE_MD
+DF$Crop_SHAPE_MD = c(rawData_cs[18,11],rawData_cs[18,11], #CS2000 x 2
+                    rawData_cs[23,11],rawData_cs[23,11],rawData_cs[23,11],rawData_cs[23,11],
+                    rawData_cs[23,11], #CS2005 x 5
+                    rawData_cs[28,11],rawData_cs[28,11],rawData_cs[28,11],rawData_cs[28,11],
+                    rawData_cs[28,11],rawData_cs[28,11],rawData_cs[28,11], #CS2010 x 7
+                    rawData_rs[18,11],rawData_rs[18,11], #RS2000 x 2
+                    rawData_rs[23,11],rawData_rs[23,11],rawData_rs[23,11],rawData_rs[23,11],
+                    rawData_rs[23,11], #RS2005 x 5
+                    rawData_rs[28,11],rawData_rs[28,11],rawData_rs[28,11],rawData_rs[28,11],
+                    rawData_rs[28,11],rawData_rs[28,11],rawData_rs[28,11]) #RS2010 x 7
+
+#Crop_IJI
+DF$Crop_IJI = c(rawData_cs[18,12],rawData_cs[18,12], #CS2000 x 2
+                rawData_cs[23,12],rawData_cs[23,12],rawData_cs[23,12],rawData_cs[23,12],
+                rawData_cs[23,12], #CS2005 x 5
+                rawData_cs[28,12],rawData_cs[28,12],rawData_cs[28,12],rawData_cs[28,12],
+                rawData_cs[28,12],rawData_cs[28,12],rawData_cs[28,12], #CS2010 x 7
+                rawData_rs[18,12],rawData_rs[18,12], #RS2000 x 2
+                rawData_rs[23,12],rawData_rs[23,12],rawData_rs[23,12],rawData_rs[23,12],
+                rawData_rs[23,12], #RS2005 x 5
+                rawData_rs[28,12],rawData_rs[28,12],rawData_rs[28,12],rawData_rs[28,12],
+                rawData_rs[28,12],rawData_rs[28,12],rawData_rs[28,12]) #RS2010 x 7
+
+#Veg_PLAND
+DF$Veg_PLAND = c(rawData_cs[19,9],rawData_cs[19,9], #CS2000 x 2
+                 rawData_cs[24,9],rawData_cs[24,9],rawData_cs[24,9],rawData_cs[24,9],
+                 rawData_cs[24,9], #CS2005 x 5
+                 rawData_cs[29,9],rawData_cs[29,9],rawData_cs[29,9],rawData_cs[29,9],
+                 rawData_cs[29,9],rawData_cs[29,9],rawData_cs[29,9], #CS2010 x 7
+                 rawData_rs[19,9],rawData_rs[19,9], #RS2000 x 2
+                 rawData_rs[24,9],rawData_rs[24,9],rawData_rs[24,9],rawData_rs[24,9],
+                 rawData_rs[24,9], #RS2005 x 5
+                 rawData_rs[29,9],rawData_rs[29,9],rawData_rs[29,9],rawData_rs[29,9],
+                 rawData_rs[29,9],rawData_rs[29,9],rawData_rs[29,9]) #RS2010 x 7
+
+#Veg_ENN_MD
+DF$Veg_ENN_MD = c(rawData_cs[19,10],rawData_cs[19,10], #CS2000 x 2
+                  rawData_cs[24,10],rawData_cs[24,10],rawData_cs[24,10],rawData_cs[24,10],
+                  rawData_cs[24,10], #CS2005 x 5
+                  rawData_cs[29,10],rawData_cs[29,10],rawData_cs[29,10],rawData_cs[29,10],
+                  rawData_cs[29,10],rawData_cs[29,10],rawData_cs[29,10], #CS2010 x 7
+                  rawData_rs[19,10],rawData_rs[19,10], #RS2000 x 2
+                  rawData_rs[24,10],rawData_rs[24,10],rawData_rs[24,10],rawData_rs[24,10],
+                  rawData_rs[24,10], #RS2005 x 5
+                  rawData_rs[29,10],rawData_rs[29,10],rawData_rs[29,10],rawData_rs[29,10],
+                  rawData_rs[29,10],rawData_rs[29,10],rawData_rs[29,10]) #RS2010 x 7
+
+#Veg_SHAPE_MD
+DF$Veg_SHAPE_MD = c(rawData_cs[19,11],rawData_cs[19,11], #CS2000 x 2
+                    rawData_cs[24,11],rawData_cs[24,11],rawData_cs[24,11],rawData_cs[24,11],
+                    rawData_cs[24,11], #CS2005 x 5
+                    rawData_cs[29,11],rawData_cs[29,11],rawData_cs[29,11],rawData_cs[29,11],
+                    rawData_cs[29,11],rawData_cs[29,11],rawData_cs[29,11], #CS2010 x 7
+                    rawData_rs[19,11],rawData_rs[19,11], #RS2000 x 2
+                    rawData_rs[24,11],rawData_rs[24,11],rawData_rs[24,11],rawData_rs[24,11],
+                    rawData_rs[24,11], #RS2005 x 5
+                    rawData_rs[29,11],rawData_rs[29,11],rawData_rs[29,11],rawData_rs[29,11],
+                    rawData_rs[29,11],rawData_rs[29,11],rawData_rs[29,11]) #RS2010 x 7
+
+#Veg_IJI
+DF$Veg_IJI = c(rawData_cs[19,12],rawData_cs[19,12], #CS2000 x 2
+               rawData_cs[24,12],rawData_cs[24,12],rawData_cs[24,12],rawData_cs[24,12],
+               rawData_cs[24,12], #CS2005 x 5
+               rawData_cs[29,12],rawData_cs[29,12],rawData_cs[29,12],rawData_cs[29,12],
+               rawData_cs[29,12],rawData_cs[29,12],rawData_cs[29,12], #CS2010 x 7
+               rawData_rs[19,12],rawData_rs[19,12], #RS2000 x 2
+               rawData_rs[24,12],rawData_rs[24,12],rawData_rs[24,12],rawData_rs[24,12],
+               rawData_rs[24,12], #RS2005 x 5
+               rawData_rs[29,12],rawData_rs[29,12],rawData_rs[29,12],rawData_rs[29,12],
+               rawData_rs[29,12],rawData_rs[29,12],rawData_rs[29,12]) #RS2010 x 7
+
+#DS_PLAND
+DF$DS_PLAND = c(rawData_cs[20,9],rawData_cs[20,9], #CS2000 x 2
+                rawData_cs[25,9],rawData_cs[25,9],rawData_cs[25,9],rawData_cs[25,9],
+                rawData_cs[25,9], #CS2005 x 5
+                rawData_cs[30,9],rawData_cs[30,9],rawData_cs[30,9],rawData_cs[30,9],
+                rawData_cs[30,9],rawData_cs[30,9],rawData_cs[30,9], #CS2010 x 7
+                rawData_rs[20,9],rawData_rs[20,9], #RS2000 x 2
+                rawData_rs[25,9],rawData_rs[25,9],rawData_rs[25,9],rawData_rs[25,9],
+                rawData_rs[25,9], #RS2005 x 5
+                rawData_rs[30,9],rawData_rs[30,9],rawData_rs[30,9],rawData_rs[30,9],
+                rawData_rs[30,9],rawData_rs[30,9],rawData_rs[30,9]) #RS2010 x 7
+
+#DS_ENN_MD
+DF$DS_ENN_MD = c(rawData_cs[20,10],rawData_cs[20,10], #CS2000 x 2
+                 rawData_cs[25,10],rawData_cs[25,10],rawData_cs[25,10],rawData_cs[25,10],
+                 rawData_cs[25,10], #CS2005 x 5
+                 rawData_cs[30,10],rawData_cs[30,10],rawData_cs[30,10],rawData_cs[30,10],
+                 rawData_cs[30,10],rawData_cs[30,10],rawData_cs[30,10], #CS2010 x 7
+                 rawData_rs[20,10],rawData_rs[20,10], #RS2000 x 2
+                 rawData_rs[25,10],rawData_rs[25,10],rawData_rs[25,10],rawData_rs[25,10],
+                 rawData_rs[25,10], #RS2005 x 5
+                 rawData_rs[30,10],rawData_rs[30,10],rawData_rs[30,10],rawData_rs[30,10],
+                 rawData_rs[30,10],rawData_rs[30,10],rawData_rs[30,10]) #RS2010 x 7
+
+#DS_SHAPE_MD
+DF$DS_SHAPE_MD = c(rawData_cs[20,11],rawData_cs[20,11], #CS2000 x 2
+                   rawData_cs[25,11],rawData_cs[25,11],rawData_cs[25,11],rawData_cs[25,11],
+                   rawData_cs[25,11], #CS2005 x 5
+                   rawData_cs[30,11],rawData_cs[30,11],rawData_cs[30,11],rawData_cs[30,11],
+                   rawData_cs[30,11],rawData_cs[30,11],rawData_cs[30,11], #CS2010 x 7
+                   rawData_rs[20,11],rawData_rs[20,11], #RS2000 x 2
+                   rawData_rs[25,11],rawData_rs[25,11],rawData_rs[25,11],rawData_rs[25,11],
+                   rawData_rs[25,11], #RS2005 x 5
+                   rawData_rs[30,11],rawData_rs[30,11],rawData_rs[30,11],rawData_rs[30,11],
+                   rawData_rs[30,11],rawData_rs[30,11],rawData_rs[30,11]) #RS2010 x 7
+
+#DS_IJI
+DF$DS_IJI = c(rawData_cs[20,12],rawData_cs[20,12], #CS2000 x 2
+              rawData_cs[25,12],rawData_cs[25,12],rawData_cs[25,12],rawData_cs[25,12],
+              rawData_cs[25,12], #CS2005 x 5
+              rawData_cs[30,12],rawData_cs[30,12],rawData_cs[30,12],rawData_cs[30,12],
+              rawData_cs[30,12],rawData_cs[30,12],rawData_cs[30,12], #CS2010 x 7
+              rawData_rs[20,12],rawData_rs[20,12], #RS2000 x 2
+              rawData_rs[25,12],rawData_rs[25,12],rawData_rs[25,12],rawData_rs[25,12],
+              rawData_rs[25,12], #RS2005 x 5
+              rawData_rs[30,12],rawData_rs[30,12],rawData_rs[30,12],rawData_rs[30,12],
+              rawData_rs[30,12],rawData_rs[30,12],rawData_rs[30,12]) #RS2010 x 7
+
+##Export Ord-dat.csv
+#write.csv(DF,"Ord_dat_2019.02.19.csv")
+Ord_site = data.frame(DF)
+```
+
+
+Time Series
+```{r time series}
+Abundance=data.frame(rowSums(out_wide[,5:85]))
+Richness=data.frame(rowSums(out_wide[,5:85]> 0))
+bird_frame=cbind(Abundance,Richness, out_wide$DATE)
+colnames(bird_frame)=c("Abundance_RS","Richness_RS","Year")
+bird_frame$Site=as.character(Ord_site$Site)
+site_turnover=rbind(bird_turnover_rs,bird_turnover_cs)
+
+TRS_2000=c(NA,2001,"RS")
+TCS_2000=c(NA,2001,"CS")
+
+Time_frame=rbind(site_turnover,TRS_2000,TCS_2000)
+Time_frame$Turnover_CS=round(as.numeric(Time_frame$Turnover_CS),3)
+Time_frame$Year=as.numeric(Time_frame$Year)
+Time_frame$site=as.character(Time_frame$site)
+
+Time_frame = Time_frame %>% arrange(site, Year)
+bird_frame= bird_frame %>% arrange(Site, Year)
+
+TimeSeries_Frame=cbind(bird_frame,Time_frame[,1])
+colnames(TimeSeries_Frame)=c("Abundance","Richness","Year","Site","Turnover")
+
+TimeSeries_FrameCS=TimeSeries_Frame %>% filter(Site=="CS")
+TimeSeries_FrameRS=TimeSeries_Frame %>% filter(Site=="RS")
+
+#turnover gets special df without 2001
+TimeSeries_Frame_Turnover = subset(TimeSeries_Frame, Year != 2001)
+TimeSeries_FrameCS_Turnover = subset(TimeSeries_FrameCS, Year != 2001)
+TimeSeries_FrameRS_Turnover = subset(TimeSeries_FrameRS, Year != 2001)
+
+#A_mod=lm(Abundance~Year*Site,data=TimeSeries_Frame);anova(A_mod)
+#par(mfrow=c(2,2))
+#plot(A_mod)
+
+#R_mod=lm(Richness~Year*Site,data=TimeSeries_Frame);anova(R_mod)
+#par(mfrow=c(2,2))
+#plot(R_mod)
+
+#T_mod=lm(Turnover~Year*Site,data=TimeSeries_Frame_Turnover);anova(T_mod)
+#par(mfrow=c(2,2))
+#plot(T_mod)
+
+#A.lst <- lstrends(A_mod, "Site", var="Year")
+#pairs(A.lst)
+
+#R.lst <- lstrends(R_mod, "Site", var="Year")
+#pairs(R.lst)
+
+#T.lst <- lstrends(T_mod, "Site", var="Year")
+#pairs(T.lst)
+```
+
+Regressions Assumptions + Signficance Testing
+```{r Signficance Testing}
+
+#Significance Testing (do the two sites have stat sig different trends?)
+#Is this a time-series regression and what is it running it on (what is the data it using)?
+A_modRS=lm(Abundance~Year,data=TimeSeries_FrameRS);anova(A_modRS)
+par(mfrow=c(2,2))
+plot(A_modRS)
+
+R_modRS=lm(Richness~Year,data=TimeSeries_FrameRS);anova(R_modRS)
+par(mfrow=c(2,2))
+plot(R_modRS)
+
+T_modRS=lm(Turnover~Year,data=TimeSeries_FrameRS_Turnover);anova(T_modRS)
+par(mfrow=c(2,2))
+plot(T_modRS)
+
+A_modCS=lm(Abundance~Year,data=TimeSeries_FrameCS);anova(A_modCS)
+par(mfrow=c(2,2))
+plot(A_modCS)
+
+R_modCS=lm(Richness~Year,data=TimeSeries_FrameCS);anova(R_modCS)
+par(mfrow=c(2,2))
+plot(R_modCS)
+
+T_modCS=lm(Turnover~Year,data=TimeSeries_FrameCS_Turnover);anova(T_modCS)
+par(mfrow=c(2,2))
+plot(T_modCS)
+
+```
+
+Plotting Bird Community Metrics
+```{r plot bird community metrics}
+abunPlot =  ggplot(TimeSeries_Frame, aes(x = Year)) +
+  theme_grey() +
+  stat_smooth(data=TimeSeries_FrameRS,aes(x = Year, predict(A_modRS,type='response'),color="Rio Salado"), method="glm", formula=y ~ x , alpha=0.5, size=2) +
+  stat_smooth(data=TimeSeries_FrameCS,aes(x = Year, predict(A_modCS,type='response'),color="New River"), method="glm", formula=y ~ x , alpha=0.5, size=2) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.95,0.98),
+        legend.justification = c("right","top"))+
+  #rio salado solid blue line for poster
+  geom_line(data=TimeSeries_FrameRS,aes(y = Abundance), size = 1, color = "#0078A8",linetype=6) +
+  geom_point(data=TimeSeries_FrameRS,aes(y = Abundance), color = "#0078A8", size = 1.2) +
+  #comparison site dashed grey line
+  geom_line(data=TimeSeries_FrameCS,aes(y = Abundance), color = "grey42", size = 1,linetype=6) +
+  geom_point(data=TimeSeries_FrameCS,aes(y = Abundance), color = "grey42", size = 1.2) +
+  ylab(label = "Bird Abundance") +
+  scale_colour_manual(name = "Sites",values = c("Rio Salado" = "#0078A8", "New River" = "grey42"))
+  
+richPlot = ggplot(TimeSeries_Frame, aes(x = Year)) +
+    theme_grey() +
+    stat_smooth(data=TimeSeries_FrameRS,aes(x = Year, predict(R_modRS,type='response')), method="glm", formula=y ~ x , alpha=0.5, size=2,color="#0078A8") +
+    stat_smooth(data=TimeSeries_FrameCS,aes(x = Year, predict(R_modCS,type='response')), method="glm", formula=y ~ x , alpha=0.5, size=2,color="grey42") +
+    theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())+
+    #rio salado solid blue line for poster
+    geom_line(data=TimeSeries_FrameRS,aes(y = Richness), size = 1, color = "#0078A8",linetype=6) +
+    geom_point(data=TimeSeries_FrameRS,aes(y = Richness), color = "#0078A8", size = 1.2) +
+    #comparison site dashed grey line
+    geom_line(data=TimeSeries_FrameCS,aes(y = Richness), color = "grey42", size = 1,linetype=6) +
+    geom_point(data=TimeSeries_FrameCS,aes(y = Richness), color = "grey42", size = 1.2) +
+    ylab(label = "Bird Richness")
+
+turnPlot = ggplot(TimeSeries_Frame_Turnover, aes(x = Year)) +
+  stat_smooth(data=TimeSeries_FrameRS_Turnover,aes(x = Year, predict(T_modRS,type='response')), method="glm", formula=y ~ x , alpha=0.5, size=2,color="#0078A8") +
+  stat_smooth(data=TimeSeries_FrameCS_Turnover,aes(x = Year, predict(T_modCS,type='response')), method="glm", formula=y ~ x , alpha=0.5, size=2,color="grey42") +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())+
+  #rio salado solid blue line for poster
+  geom_line(data=TimeSeries_FrameRS_Turnover,aes(y = Turnover), size = 1, color = "#0078A8",linetype=6) +
+  geom_point(data=TimeSeries_FrameRS_Turnover,aes(y = Turnover), color = "#0078A8", size = 1.2) +
+  #comparison site grey line
+  geom_line(data=TimeSeries_FrameCS_Turnover,aes(y = Turnover), color = "grey42", size = 1,linetype=6) +
+  geom_point(data=TimeSeries_FrameCS_Turnover,aes(y = Turnover), color = "grey42", size = 1.2) +
+  ylab(label = "Bird Turnover")+
+  ylim(0.25,0.85)
+
+grid.arrange(abunPlot,richPlot,turnPlot,nrow = 1)
+```
+
+## Figure 9. Non-metric multidimensional scaling
+
+Ordination
+```{r ordination, warning=FALSE}
+bird_wideT=sqrt(bird_wide+0.001)
+bird_sum=colSums( bird_wide>0, na.rm = FALSE) #dropping species not in enough columns
+bird_percent=round((bird_sum/30)*100,2)
+bird_percent
+
+bird_wideT$AMBI=NULL
+bird_wideT$AMKE=NULL
+bird_wideT$BCNH=NULL
+bird_wideT$BGGN=NULL
+bird_wideT$BNST=NULL
+bird_wideT$CANG=NULL
+bird_wideT$COGA=NULL
+bird_wideT$EUST=NULL
+bird_wideT$LBDO=NULL
+bird_wideT$LBWO=NULL
+bird_wideT$LESA=NULL
+bird_wideT$MGWA=NULL
+bird_wideT$NECO=NULL
+bird_wideT$NOCA=NULL
+bird_wideT$OSPR=NULL
+bird_wideT$PBGR=NULL
+bird_wideT$ROPI=NULL
+bird_wideT$SPSA=NULL
+bird_wideT$VIRA=NULL
+bird_wideT$WESA=NULL
+bird_wideT$ATFL=NULL
+bird_wideT$BEKI=NULL
+bird_wideT$BTYW=NULL
+bird_wideT$CHSP=NULL
+bird_wideT$CORA=NULL
+bird_wideT$EUCD=NULL
+bird_wideT$GTTO=NULL
+bird_wideT$HOWR=NULL
+bird_wideT$INDO=NULL
+bird_wideT$LISP=NULL
+bird_wideT$LUWA=NULL
+bird_wideT$NOMO=NULL
+bird_wideT$PHAI=NULL
+bird_wideT$PWWR=NULL
+bird_wideT$PYRR=NULL
+bird_wideT$TOWA=NULL
+bird_wideT$WEKI=NULL
+bird_wideT$WEME=NULL
+bird_wideT$WETA=NULL
+
+#Unconstrained Ordination- Time/Site/NDVI/TEMP
+bird_ordination=metaMDS(bird_wideT,distance="bray",k=2,trymax=1000) #ordination
+#quartz()
+stressplot(bird_ordination,main="2D Shepard Stress Plot")
+gof=goodness(bird_ordination)
+#quartz()
+plot(bird_ordination,display="sites",main="2D Goodness of Fit",type="t")
+points(bird_ordination,cex=2*gof/mean(gof))
+bird_ordination
+
+ord.sites=envfit(bird_ordination,data.frame(Ord_site[,c(2:3)]),perm=999,na.rm=TRUE)
+ord.sites
+ord.ndvi=envfit(bird_ordination,data.frame(Ord_site[,c(4:5)]),perm=999,na.rm=TRUE)
+ord.ndvi
+ord.water=envfit(bird_ordination,data.frame(Ord_site[,c(6:9)]),perm=999,na.rm=TRUE)
+ord.water
+ord.bu=envfit(bird_ordination,data.frame(Ord_site[,c(10:13)]),perm=999,na.rm=TRUE)
+ord.bu
+#ord.crop=envfit(bird_ordination,data.frame(Ord_site[,c(14:17)]),perm=999,na.rm=TRUE)
+#ord.crop
+#Lots of "the standard deviation is zero" messages, is this a concern?
+ord.veg=envfit(bird_ordination,data.frame(Ord_site[,c(18:21)]),perm=999,na.rm=TRUE)
+ord.veg
+#Lots of "the standard deviation is zero" messages, is this a concern?
+ord.ds=envfit(bird_ordination,data.frame(Ord_site[,c(22:25)]),perm=999,na.rm=TRUE)
+ord.ds
+
+# should crop be removed from this? check with Riley
+ord.size=envfit(bird_ordination,data.frame(Ord_site$Water_PLAND,Ord_site$Veg_PLAND,Ord_site$DS_PLAND,Ord_site$BU_PLAND,
+                                           Ord_site$Crop_PLAND),perm=999,na.rm=TRUE)
+ord.conn=envfit(bird_ordination,data.frame(Ord_site$Water_ENN_MD,Ord_site$Veg_ENN_MD,Ord_site$DS_ENN_MD,Ord_site$BU_ENN_MD,
+                                           Ord_site$Crop_ENN_MD),perm=999,na.rm=TRUE)
+#Lots of "the standard deviation is zero" messages, is this a concern?
+ord.shape=envfit(bird_ordination,data.frame(Ord_site$Water_SHAPE_MD,Ord_site$Veg_SHAPE_MD,Ord_site$DS_SHAPE_MD,
+                                            Ord_site$BU_SHAPE_MD,Ord_site$Crop_SHAPE_MD),perm=999,na.rm=TRUE)
+#Lots of "the standard deviation is zero" messages, is this a concern?
+ord.iji=envfit(bird_ordination,data.frame(Ord_site$Water_IJI,Ord_site$Veg_IJI,Ord_site$DS_IJI,Ord_site$BU_IJI,
+                                          Ord_site$Crop_IJI),perm=999,na.rm=TRUE)
+
+#quartz()
+plot(bird_ordination,type = "n",xlim=c(-0.75,0.75),ylim=c(-0.75,0.75))
+with(Ord_site, points(bird_ordination,cex=1.5,display = "sites",pch = c(17,16)[Ord_site$Site],col = c("violetred4","dodgerblue3")[Ord_site$Site]))
+orditorp(bird_ordination, display="species",scaling=-3,air=0.9,cex=0.9, font=2, col = "gray31")
+ordiellipse(bird_ordination,groups=Ord_site$Landscape, kind="se", conf=0.95,label=TRUE)
+ordiellipse(bird_ordination,groups=Ord_site$Site, kind="se", conf=0.95,label=TRUE)
+
+plot(ord.ndvi,lwd=2,cex=1.1,col=c("blue"))
+plot(ord.water,lwd=2,cex=1.1,col=c("blue"))
+plot(ord.bu,lwd=2,cex=1.1,col=c("blue"))
+#plot(ord.crop,lwd=2,cex=1.1,col=c("blue"))
+plot(ord.veg,lwd=2,cex=1.1,col=c("blue","transparent","transparent","blue"))
+plot(ord.ds,lwd=2,cex=1.1,col=c("blue","grey","transparent","blue"))
+```
+
+```{r empty}
+
+```
