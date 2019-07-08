@@ -6,7 +6,7 @@ Code for an integrated assessment of land system impacts on surface urban heat i
 
 
 ### Methodology Diagram
- [alt text](images/RioSaladoManuscriptMethodsFlowchart_3Qs_reorder.png "Methodology Diagram")
+ ![alt text](images/RioSaladoManuscriptMethodsFlowchart_3Qs_reorder.png "Methodology Diagram")
 
 
 
@@ -25,10 +25,10 @@ All base data used in this article is publicly available.
 The land use/land cover (LULC) classification and bird community surveys are available through the NSF funded Central Arizona-Phoenix Long-Term Ecological Research Program (CAP LTER), under grant number DEB-1832016.
 
 
-LULC classification (Zhang and Li 2017), download [here.] (https://sustainability.asu.edu/caplter/data/view/knb-lter-cap.650.1/)
+LULC classification (Zhang and Li 2017), download [here.](https://sustainability.asu.edu/caplter/data/view/knb-lter-cap.650.1/)
 
 
-Bird community survey (Bateman et al., 2017),  download [here.] (https://sustainability.asu.edu/caplter/data/view/knb-lter-cap.46.16/)
+Bird community survey (Bateman et al., 2017),  download [here.](https://sustainability.asu.edu/caplter/data/view/knb-lter-cap.46.16/)
 
 
 The Landsat 5 images are made publicly available by the US federal government (USGS and NASA) and were accessed using Google Earth Engine.
@@ -61,7 +61,7 @@ Bird abundance, richness, and turnover were computed from the raw bird community
 
 Bateman, H.L., Childers, D.L., Katti, M., Shochat, E., Warren, P.S., 2017. Point-count bird censusing: long-term monitoring of bird abundance and diversity in central Arizona-Phoenix, ongoing since 2000. Environ. Data Initiat. https://doi.org/10.6073/pasta/201add557165740926aab6e056db6988
 
-McGarigal, K., Cushman, S.A., Ene, E., 2012. FRAGSTATS v4: Spatial Pattern Analysis Program for Categorical and Continuous Maps. Comput. Softw. Program Prod. Authors Univ. Mass. Amherst. URL http://www.umass.edu/landeco/research/fragstats/fragstats.html (accessed 3.1.18).
+McGarigal, K., Cushman, S.A., Ene, E., 2012. FRAGSTATS v4: Spatial Pattern Analysis Program for Categorical and Continuous Maps. Comput. Softw. Program Prod. Authors Univ. Mass. Amherst. URL http://www.umass.edu/landeco/research/fragstats/fragstats.html
 
 McGarigal, K., Marks, B.J., 1995. FRAGSTATS: spatial pattern analysis program for quantifying landscape structure.
 
