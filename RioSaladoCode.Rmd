@@ -424,12 +424,12 @@ lstA = ggplot(rawData_rs_g, aes(SHAPE_MD,LSTdiff,colour=ClassNm)) +
   theme_grey() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_text(size=10),
-        axis.title.y = element_text(size=10))+
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=12))+
   geom_point(size=2.5) +
   geom_line(aes(y = SHAPEMD_LSTdiff_rs$model$fitted.values), linetype = 6,size=1.5)+
   xlab("Shape")+
-  ylab("LST Difference (C)")+
+  ylab("LST Difference (°C)")+
   annotate("text",x=max(rawData_rs_g$SHAPE_MD)-0.08,y=max(rawData_rs_g$LSTdiff)-0.15,label = rrm_lstA,parse = TRUE)+
   annotate("text",x=max(rawData_rs_g$SHAPE_MD)-0.08,y=max(rawData_rs_g$LSTdiff)-0.7,label = p_lstA,parse = TRUE)
 ```
@@ -446,8 +446,8 @@ ndviB = ggplot(rawData_rs_g, aes(IJI,NDVIdiff,colour=ClassNm)) +
   theme_grey() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_text(size=10),
-        axis.title.y = element_text(size=10))+
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=12))+
   geom_point(size=2.5) +
   geom_line(aes(y = IJI_NDVIdiff_rs$model$fitted.values), linetype = 6,size=1.5)+
   xlab("Distribution")+
@@ -468,12 +468,12 @@ lstB = ggplot(rawData_rs_g, aes(IJI,LSTdiff,colour=ClassNm)) +
   theme_grey() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_text(size=10),
-        axis.title.y = element_text(size=10))+
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=12))+
   geom_point(size=2.5) +
   geom_line(aes(y = IJI_LSTdiff_rs$model$fitted.values), linetype = 6,size=1.5)+
   xlab("Distribution")+
-  ylab("LST Difference (C)")+
+  ylab("LST Difference (°C)")+
   annotate("text",x=max(rawData_rs_g$IJI)-13,y=max(rawData_rs_g$LSTdiff)-0.15,label = rrm_lstB,parse = TRUE)+
   annotate("text",x=max(rawData_rs_g$IJI)-13,y=max(rawData_rs_g$LSTdiff)-0.7,label = p_lstB,parse = TRUE)
 ```
@@ -490,8 +490,8 @@ ndviC = ggplot(rawData_cs, aes(SHAPE_MD,NDVIdiff,colour=ClassNm))+
   theme_grey() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_text(size=10),
-        axis.title.y = element_text(size=10))+
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=12))+
   geom_point(size=3)+
   geom_line(aes(y = SHAPEMD_NDVIdiff_cs$model$fitted.values), linetype = 6,size=1.5)+
   xlab("Shape")+
@@ -512,12 +512,12 @@ lstC = ggplot(rawData_cs, aes(SHAPE_MD,LSTdiff,colour=ClassNm))+
   theme_grey() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_text(size=10),
-        axis.title.y = element_text(size=10))+
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=12))+
   geom_point(size=2.5)+
   geom_line(aes(y = SHAPEMD_LSTdiff_cs$model$fitted.values), linetype = 6,size=1.5)+
   xlab("Shape")+
-  ylab("LST Difference (C)")+
+  ylab("LST Difference (°C)")+
   annotate("text",x=max(rawData_cs$SHAPE_MD)-0.1,y=min(rawData_cs$LSTdiff)+1.2,label = rrm_lstC,parse = TRUE)+
   annotate("text",x=max(rawData_cs$SHAPE_MD)-0.1,y=min(rawData_cs$LSTdiff)+0.45,label = p_lstC,parse = TRUE)
 ```
@@ -534,8 +534,8 @@ ndviA = ggplot(rawData_rs_g, aes(SHAPE_MD,NDVIdiff,colour=ClassNm)) +
   theme_grey() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_text(size=10),
-        axis.title.y = element_text(size=10))+
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=12))+
   geom_point(size=2.5) +
   geom_line(aes(y = SHAPEMD_NDVIdiff_rs$model$fitted.values), linetype = 6,size=1.5)+
   xlab("Shape")+
@@ -557,8 +557,8 @@ ndviD = ggplot(rawData_cs, aes(IJI,NDVIdiff,colour=ClassNm))+
   theme_grey() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_text(size=10),
-        axis.title.y = element_text(size=10))+
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=12))+
   geom_point(size=2.5)+
   geom_line(aes(y = IJI_NDVIdiff_cs$model$fitted.values), linetype = 6,size=1.5)+
   xlab("Distribution")+
@@ -579,12 +579,12 @@ lstD = ggplot(rawData_cs, aes(IJI,LSTdiff,colour=ClassNm))+
   theme_grey() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_text(size=10),
-        axis.title.y = element_text(size=10))+
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=12))+
   geom_point(size=2.5)+
   geom_line(aes(y = IJI_LSTdiff_cs$model$fitted.values), linetype = 6,size=1.5)+
   xlab("Distribution")+
-  ylab("LST Difference (C)")+
+  ylab("LST Difference (°C)")+
   annotate("text",x=max(rawData_cs$IJI)-13,y=min(rawData_cs$LSTdif)+1.2,label = rrm_lstD,parse = TRUE)+
   annotate("text",x=max(rawData_cs$IJI)-13,y=min(rawData_cs$LSTdif)+0.45,label = p_lstD,parse = TRUE)
   #annotate("text",x=69,y=-9,label = rrm_lstD,parse = TRUE)+
@@ -595,7 +595,35 @@ Facet wrap with stat sig rmcorr graphs
 https://community.rstudio.com/t/annotate-ggplot2-with-regression-equation-and-r-squared/6112/8
 
 ```{r facet wrap rmcorr,warning=FALSE,message=FALSE}
-ggarrange(ndviA,ndviB,lstA,lstB,ndviC,ndviD,lstC,lstD,ncol=4,nrow=2,common.legend = TRUE, legend="bottom")
+#open pdf file to save plot to
+#pdf("FIG7.pdf",width=11,height=7)
+
+figure=ggarrange(ndviA,ndviB,lstA,lstB,ndviC,ndviD,lstC,lstD,ncol=4,nrow=2,common.legend = TRUE, legend="bottom")+
+    theme(
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(colour = "white", fill=NA, size=0.5),
+    plot.margin = margin(0.5, 0.5, 0, 0.5, "cm"))
+
+annotate_figure(figure,
+    top = text_grob("", face = "bold", size = 14),
+    left = text_grob("", rot = 90, size = 14),
+    right = text_grob("", rot = 90, size = 14))+
+    theme(panel.background = element_rect(fill = "grey90",colour = "grey90"),
+          panel.border = element_rect(colour = "white", fill=NA, size=1),
+    plot.margin = margin(0, 0, 0, 0, "cm")) +
+    geom_rect(aes(xmin = 0, xmax = 0.495, ymin = 0.939, ymax = 1), color = "white", size = 0.5, fill = "grey70")+
+    geom_rect(aes(xmin = 0, xmax = 0.04, ymin = 0, ymax = 1), color = "grey70", size = 0.5, fill = "grey70")+
+    geom_rect(aes(xmin = 0.495, xmax = 1, ymin = 0.939, ymax = 1), color = "white", size = 0.5, fill = "grey40")+
+    geom_rect(aes(xmin = 0.96, xmax = 1, ymin = 0, ymax = 1), color = "grey40", size = 0.5, fill = "grey40") +
+    annotate(geom="text", x=0.29, y=0.97, label="(A) NDVI",color="black",size=6)+
+    annotate(geom="text", x=0.75, y=0.97, label="(B) LST",color="white",size=6)+
+    annotate(geom="text", x=0.02, y=0.74, label="Rio Salado",color="black",size=6,angle=90) +
+    annotate(geom="text", x=0.98, y=0.74, label="Rio Salado",color="white",size=6,angle=90) +
+    annotate(geom="text", x=0.02, y=0.3, label="New River",color="black",size=6,angle=90) +
+    annotate(geom="text", x=0.98, y=0.3, label="New River",color="white",size=6,angle=90)
+
+#close pdf file to save plot to
+#dev.off()
 ```
 
 ## Figure 8. Bird Community Metric Graphs
