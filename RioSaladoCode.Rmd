@@ -643,11 +643,11 @@ outRS <- data.frame(OBSERVATION_TYPE = "",
                     VALUE = "")
 
 step1 <- dataRS %>% group_by(Date, code) %>% 
-  summarize(NUM = sum(bird_count))
+  summarise(NUM = sum(bird_count))
 step1$Year<- as.numeric(format(step1$Date, format = "%Y"))
 
 step2 <- step1 %>% group_by(Year, code) %>% 
-  summarize(VALUE = max(NUM))
+  summarise(VALUE = max(NUM))
 
 outRS <- cbind.data.frame(OBSERVATION_TYPE = "TAXON_COUNT",
                           DATE = step2$Year,
@@ -666,11 +666,11 @@ outCS <- data.frame(OBSERVATION_TYPE = "",
                     VALUE = "")
 
 step1 <- dataCS %>% group_by(Date, code) %>% 
-  summarize(NUM = sum(bird_count))
+  summarise(NUM = sum(bird_count))
 step1$Year<- as.numeric(format(step1$Date, format = "%Y"))
 
 step2 <- step1 %>% group_by(Year, code) %>% 
-  summarize(VALUE = max(NUM))
+  summarise(VALUE = max(NUM))
 
 outCS <- cbind.data.frame(OBSERVATION_TYPE = "TAXON_COUNT",
                           DATE = step2$Year,
@@ -1147,7 +1147,11 @@ turnPlot = ggplot(TimeSeries_Frame_Turnover, aes(x = Year)) +
   ylab(label = "Bird Turnover")+
   ylim(0.25,0.85)
 
-grid.arrange(abunPlot,richPlot,turnPlot,nrow = 1)
+fig8 = grid.arrange(abunPlot,richPlot,turnPlot,nrow = 1)
+fig8
+
+#Export plot as EPS
+#ggsave(filename='FIG8.eps',plot=fig8,width=380,height=95.24,units="mm")
 ```
 
 ## Figure 9. Non-metric multidimensional scaling
