@@ -1240,6 +1240,9 @@ ord.iji=envfit(bird_ordination,data.frame(Ord_site$Water_IJI,Ord_site$Veg_IJI,Or
 
 Ord_site$Site=as.factor(Ord_site$Site) #sites to factors
 
+#Open a pdf file for saving
+#pdf("FIG9.pdf",width=14.5,height=10.5)
+
 #plotting ordination
 par(mar = c(5.1, 5.1, 1, 1)) # Set the margin on all sides to 2
 plot(bird_ordination,type = "n",xlim=c(-1,1),ylim=c(-0.5,0.5),xlab=expression(paste(bold("NMDS1:")," Temporal Shifts")),ylab=expression(paste(bold("NMDS2:")," Site Differences")),cex.lab=2,cex.axis=1.7)
@@ -1248,19 +1251,32 @@ with(Ord_site, points(bird_ordination,display = "sites",cex=4,pch = c(17,16)[Ord
 orditorp(bird_ordination, display="species",scaling=-3,air=1,cex=1.4, font=1, col = "gray31")
 
 #plotting vectors
-plot(ord.ds,lwd=2,cex=1.7,font=2,border="transparent",bg=c("white","transparent","transparent","transparent"),col=c("darkgoldenrod3","transparent","transparent","darkgoldenrod3"),labels=c("Desert/Soil Size                         ","","","Desert/Soil Distribution                                 "))
-plot(ord.veg,lwd=2,cex=1.7,font=2,border="transparent",bg=c("white","transparent","transparent","transparent"),col=c("darkgreen","transparent","transparent","darkgreen"),labels=c("Vegetation Size        ","","","\n\n\nVeg Distribution                 "))
-plot(ord.veg,lwd=2,cex=1.7,col=c("darkgreen","transparent","transparent","darkgreen"),labels=c("","","",""))
-plot(ord.ds,lwd=2,cex=1.7,font=2,col=c("darkgoldenrod3","transparent","transparent","darkgoldenrod3"),labels=c("","","",""))
-plot(ord.bu,lwd=2,cex=1.7,col=c("grey20"),border="transparent",bg=c("transparent","white","transparent","transparent"),font=2,labels=c("                   Built-up Size","Built-up         \nConnectivity          ","Built-up Shape","Built-up Distribution"))
-plot(ord.water,lwd=2,cex=1.7,col=c("darkblue"),font=2,labels=c("                  Water Size","Water Connectivity                      ","                      Water Shape","               Water \n               Distribution"))
+plot(ord.ds,lwd=2,cex=1.7,font=2,border="transparent",bg=c("transparent","transparent","transparent","transparent"),
+     col=c("darkgoldenrod3","transparent","transparent","darkgoldenrod3"),
+     labels=c("Desert/Soil Size                         ","","","Desert/Soil Distribution                                 "))
+
+plot(ord.veg,lwd=2,cex=1.7,font=2,border="transparent",bg=c("transparent","transparent","transparent","transparent"),
+     col=c("darkgreen","transparent","transparent","darkgreen"),labels=c("Veg Size","","","\n\nVeg Distribution                 "))
+
+#plot(ord.veg,lwd=2,cex=1.7,col=c("darkgreen","transparent","transparent","darkgreen"),labels=c("","","",""))
+
+#plot(ord.ds,lwd=2,cex=1.7,font=2,col=c("darkgoldenrod3","transparent","transparent","darkgoldenrod3"),labels=c("","","",""))
+
+plot(ord.bu,lwd=2,cex=1.7,col=c("grey20"),border="transparent",bg=c("transparent","transparent","transparent","transparent"),
+     font=2,labels=c("                   Built-up Size","Built-up         \nConnectivity          ","Built-up Shape","Built-up Distribution"))
+
+plot(ord.water,lwd=2,cex=1.7,col=c("darkblue"),font=2,
+     labels=c("                  Water Size","Water Connectivity                      ","                      Water Shape","               Water \n               Distribution"))
 
 #bottom arrow showing time
-arrows(-0.81,-0.72, 0.83, -0.72, code = 3, lwd = 2, col = 'grey10',lty=2,length=0.1)
-arrows(-0.8,-0.72, -0.81, -0.72, code = 2, lwd = 2, col = 'grey10',lty=1,length=0.1)
-arrows(0.82,-0.72, 0.83, -0.72, code = 2, lwd = 2, col = 'grey10',lty=1,length=0.1)
-text("Earlier Years",x=-0.95,y=-0.72,font=2,cex=1.5)
-text("Later Years",x=0.95,y=-0.72,font=2,cex=1.5)
+arrows(-0.81,-0.72, 0.83, -0.72, code = 3, lwd = 2, col = 'gray41',lty=2,length=0.1)
+arrows(-0.80,-0.72, -0.81, -0.72, code = 2, lwd = 2, col = 'gray41',lty=1,length=0.1)
+arrows(0.82,-0.72, 0.83, -0.72, code = 2, lwd = 2, col = 'gray41',lty=1,length=0.1)
+text("Earlier Years",x=-0.95,y=-0.72,font=2,cex=1.5, col = 'gray41')
+text("Later Years",x=0.95,y=-0.72,font=2,cex=1.5, col = 'gray41')
+
+#Close pdf file for saving
+#dev.off()
 ```
 
 ```{r empty}
