@@ -1,5 +1,6 @@
-# Environmental Outcomes of Urban Land Systems: Comparing Riparian Design Approaches in the Phoenix Metropolitan Area
+# Environmental Outcomes of Urban Land System Change: Comparing Riparian Design Approaches in the Phoenix Metropolitan Area
 
+Citation: Stuhlmacher, M., Andrade, R., Turner, B.L. II, Frazier, A. and Li, W. (in press). “Environmental outcomes of urban land systems change: Comparing riparian design approaches in the Phoenix metropolitan area”. Land Use Policy.
 
 Code for an integrated assessment of land system impacts on surface urban heat island, Normalized Difference Vegetation Index (NDVI), and bird biota at two riparian sites in the Phoenix, Arizona, metropolitan area with different design intentions.
 
@@ -39,7 +40,7 @@ The Landsat 5 images are made publicly available by the US federal government (U
 
 
 ### Research Question 1:
-The LULC data was recoded into 5 classes� water, built-up, crop, vegetation, and desert/bare soil�and a 30-meter border was created according to McGarigal and Marks (1995).  
+The LULC data was recoded into 5 classes— water, built-up, crop, vegetation, and desert/bare soil—and a 30-meter border was created according to McGarigal and Marks (1995).  
 
 This data was input into FRAGSTATS (McGarigal et al., 2012) and Percentage of Landscape (PLAND), median Shape Index (SHAPE_MD), Interspersion and Juxtaposition Index (IJI), and median Euclidean Nearest Neighbor (ENN_MD) were calculated. The rate of change was calculated for the metrics in R.
 
