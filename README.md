@@ -60,7 +60,7 @@ Bird abundance, richness, and turnover were computed from the raw bird community
 
 
 
-# Citations
+# References
 
 Bateman, H.L., Childers, D.L., Katti, M., Shochat, E., Warren, P.S., 2017. Point-count bird censusing: long-term monitoring of bird abundance and diversity in central Arizona-Phoenix, ongoing since 2000. Environ. Data Initiat. https://doi.org/10.6073/pasta/201add557165740926aab6e056db6988
 
