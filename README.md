@@ -3,11 +3,12 @@
 ### Citation:
 Stuhlmacher, M., Andrade, R., Turner, B.L. II, Frazier, A. and Li, W. (in press). “Environmental outcomes of urban land systems change: Comparing riparian design approaches in the Phoenix metropolitan area”. Land Use Policy.
 
+### Summary:
 Code for an integrated assessment of land system impacts on surface urban heat island, Normalized Difference Vegetation Index (NDVI), and bird biota at two riparian sites in the Phoenix, Arizona, metropolitan area with different design intentions.
 
 
 
-### Methodology Diagram
+### Methodology Diagram:
  ![alt text](images/RioSaladoManuscriptMethodsFlowchart_3Qs_reorder.png "Methodology Diagram")
 
 
